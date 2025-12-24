@@ -194,6 +194,11 @@ export const generateSpeech = async (text: string): Promise<string | undefined> 
             voiceConfig: {
               prebuiltVoiceConfig: { voiceName: 'Kore' }, // 'Kore' provides a nice, clear voice for education
             },
+            // [Critical] Force PCM output. 
+            // Since we manually decode Int16Array in the frontend, we MUST ensure the API returns LINEAR16 PCM.
+            // If the API defaults to MP3, the sound will be static noise.
+            // @ts-ignore
+            audioEncoding: "LINEAR16",
         },
       },
     });

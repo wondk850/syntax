@@ -50,9 +50,11 @@ const GRAMMAR_SCHEMA = {
       properties: {
         title: { type: Type.STRING },
         summary: { type: Type.ARRAY, items: { type: Type.STRING } },
+        key_distinction: { type: Type.STRING, description: "Comparison with a confusing concept (e.g. What vs That)" },
+        exam_tip: { type: Type.STRING, description: "Common mistake or trap in exams" },
         example: { type: Type.STRING },
       },
-      required: ["title", "summary", "example"]
+      required: ["title", "summary", "key_distinction", "exam_tip", "example"]
     },
     quizzes: {
       type: Type.ARRAY,
@@ -67,19 +69,23 @@ const GRAMMAR_SCHEMA = {
         required: ["question", "options", "answer", "explanation"]
       }
     },
-    puzzle: {
-      type: Type.OBJECT,
-      properties: {
-        id: { type: Type.STRING },
-        sentence_translation: { type: Type.STRING },
-        chunks: { type: Type.ARRAY, items: { type: Type.STRING } },
-        correct_order: { type: Type.ARRAY, items: { type: Type.STRING } },
-        distractor: { type: Type.STRING, nullable: true },
-      },
-      required: ["sentence_translation", "chunks", "correct_order"]
+    puzzles: {
+      type: Type.ARRAY,
+      description: "Generate exactly 7 distinct sentence puzzles for practice",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          id: { type: Type.STRING },
+          sentence_translation: { type: Type.STRING },
+          chunks: { type: Type.ARRAY, items: { type: Type.STRING } },
+          correct_order: { type: Type.ARRAY, items: { type: Type.STRING } },
+          distractor: { type: Type.STRING, nullable: true },
+        },
+        required: ["sentence_translation", "chunks", "correct_order"]
+      }
     }
   },
-  required: ["concept", "quizzes", "puzzle"]
+  required: ["concept", "quizzes", "puzzles"]
 };
 
 export const parseTextToGameData = async (text: string): Promise<SentenceData[]> => {
@@ -279,28 +285,50 @@ export const generateSocraticHint = async (
 };
 
 export const generateGrammarData = async (topic: string, level: GrammarLevel): Promise<GrammarData | null> => {
-  // Enhanced prompt for friendly Korean explanation with English terms
+  // Enhanced prompt for "Desirable Difficulty" and Exam Simulation
   const prompt = `
-    You are a friendly, expert Korean English Grammar Teacher for middle school students.
+    You are a strictly professional Korean Middle School English Exam Expert.
     Topic: '${topic}'
-    Level: '${level}'
+    Target Level: '${level}'
     
-    Task:
-    1. **concept**: Explain the grammar point in easy KOREAN. 
-       - Title must be in Korean (with English term). e.g., "To부정사 (To-Infinitive)".
-       - Summary should be 3 short, punchy bullet points in Korean.
-       - Example sentence should be simple and clear.
-    2. **quizzes**: Create 3 binary choice questions (e.g., [is/are]).
-       - Explanation must be in KOREAN, explaining WHY the answer is correct.
-    3. **puzzle**: A sentence reordering task.
-       - If level == 'beginner': Split sentence into meaningful phrases (chunks). NO distractor.
-       - If level == 'advanced': Split sentence into individual words. MUST include 1 'distractor' word that looks grammatically plausible but is wrong (e.g., 'who' vs 'which').
+    GOAL: Create a "Desirable Difficulty" learning module. Do NOT create easy, predictable content.
+    The student must struggle slightly to learn the nuance.
+
+    Task 1: **Concept & Distinction (The "VS" Logic)**
+    - Explain the topic in Korean.
+    - CRITICAL: You MUST compare it with a confusing concept. (e.g., if topic is 'Rel. Pronoun What', compare it with 'Rel. Pronoun That' or 'Interrogative What').
+    - 'key_distinction': Explicitly state how to tell them apart (e.g., "Complete vs Incomplete sentence").
+    - 'exam_tip': A specific trick or trap to watch out for in exams.
+
+    Task 2: **Quizzes (Discrimination Training)**
+    - Create 3 distinct multiple-choice questions.
+    - Options MUST include the 'confusing concept' as a distractor. 
+    - Do NOT just ask definitions. Ask for judgement in context.
+    - Example: If topic is 'Gerund', options should include 'Present Participle' or 'Infinitive'.
+    - Explanation must explain WHY the distractor is wrong.
+
+    Task 3: **Puzzles (Syntax Logic & Pattern Drills)**
+    - Create EXACTLY 7 DIFFERENT English sentences related to the topic.
+    - For each sentence, provide scrambled chunks.
+    - If level == 'advanced', provide a 'distractor' word that is grammatically plausible but incorrect in this specific context (e.g., 'who' vs 'which').
 
     Output JSON schema:
     {
-      "concept": { "title": string, "summary": string[], "example": string },
+      "concept": { 
+        "title": string, 
+        "summary": string[], 
+        "key_distinction": string, 
+        "exam_tip": string, 
+        "example": string 
+      },
       "quizzes": [{ "question": string, "options": string[], "answer": string, "explanation": string }],
-      "puzzle": { "id": string, "sentence_translation": string, "chunks": string[], "correct_order": string[], "distractor": string | null }
+      "puzzles": [{ 
+         "id": string, 
+         "sentence_translation": string, 
+         "chunks": string[], 
+         "correct_order": string[], 
+         "distractor": string | null 
+      }]
     }
   `;
 

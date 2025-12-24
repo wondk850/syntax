@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GrammarData, GrammarLevel } from '../types';
 import { generateGrammarData } from '../services/ai';
-import { Loader2, ArrowRight, Brain, CheckCircle, XCircle, Siren, Home, Map, Zap, Layers } from 'lucide-react';
+import { Loader2, ArrowRight, Brain, CheckCircle, XCircle, Siren, Home, Map, Zap, Layers, AlertTriangle, Scale, X, Activity, RefreshCcw } from 'lucide-react';
 
 interface GrammarModeProps {
   onBack: () => void;
 }
 
-type Phase = 'TOPIC_SELECT' | 'LOADING' | 'CONCEPT' | 'QUIZ' | 'PUZZLE' | 'SUCCESS';
+type Phase = 'TOPIC_SELECT' | 'LOADING' | 'CONCEPT' | 'QUIZ' | 'PUZZLE' | 'DIAGNOSIS' | 'SUCCESS';
 
 // Helper Icon Component
 const LinkIcon = ({ size, className }: { size: number, className?: string }) => (
@@ -60,24 +60,57 @@ const GRAMMAR_ZONES = [
 export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
   const [phase, setPhase] = useState<Phase>('TOPIC_SELECT');
   const [level, setLevel] = useState<GrammarLevel>('beginner');
+  const [currentTopic, setCurrentTopic] = useState<string>('');
   const [data, setData] = useState<GrammarData | null>(null);
   
-  // Phase State
+  // Quiz State
   const [quizIdx, setQuizIdx] = useState(0);
+  const [quizFeedback, setQuizFeedback] = useState<{isCorrect: boolean, text: string} | null>(null);
+  const [quizMistakeCount, setQuizMistakeCount] = useState(0);
+
+  // Puzzle State
+  const [puzzleIdx, setPuzzleIdx] = useState(0);
   const [placedBlocks, setPlacedBlocks] = useState<string[]>([]);
   const [availableBlocks, setAvailableBlocks] = useState<string[]>([]);
-  const [message, setMessage] = useState("");
-  const [isError, setIsError] = useState(false);
+  const [puzzleFeedback, setPuzzleFeedback] = useState<{type: 'error' | 'success', text: string} | null>(null);
+  const [puzzleMistakeCount, setPuzzleMistakeCount] = useState(0);
 
-  const loadTopic = async (topicLabel: string) => {
+  // Stats
+  const [sessionStats, setSessionStats] = useState({ quizCorrect: 0, puzzleCorrect: 0 });
+
+  const loadTopic = async (topicLabel: string, isRetry = false) => {
+    setCurrentTopic(topicLabel);
     setPhase('LOADING');
     // Pass the full label (Korean + English) to AI so it knows exactly what to teach
     const result = await generateGrammarData(topicLabel, level);
-    if (result) {
+    if (result && result.puzzles && result.puzzles.length > 0) {
       setData(result);
-      // Init Puzzle State
-      const chunks = [...result.puzzle.chunks];
-      if (result.puzzle.distractor) chunks.push(result.puzzle.distractor);
+      // Reset States
+      setQuizIdx(0);
+      setQuizFeedback(null);
+      setPuzzleIdx(0);
+      setPuzzleFeedback(null);
+      setSessionStats({ quizCorrect: 0, puzzleCorrect: 0 });
+      setQuizMistakeCount(0);
+      setPuzzleMistakeCount(0);
+
+      // Prepare First Puzzle
+      preparePuzzle(result.puzzles[0]);
+
+      if (isRetry) {
+         setPhase('PUZZLE'); // Skip concept/quiz on retry
+      } else {
+         setPhase('CONCEPT');
+      }
+    } else {
+      setPhase('TOPIC_SELECT');
+      alert("AI가 수업을 준비하지 못했습니다. 다시 시도해주세요.");
+    }
+  };
+
+  const preparePuzzle = (puzzle: any) => {
+      const chunks = [...puzzle.chunks];
+      if (puzzle.distractor) chunks.push(puzzle.distractor);
       // Shuffle
       for (let i = chunks.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -85,27 +118,32 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
       }
       setAvailableBlocks(chunks);
       setPlacedBlocks([]);
-      setPhase('CONCEPT');
-    } else {
-      setPhase('TOPIC_SELECT');
-      alert("AI가 수업을 준비하지 못했습니다. 다시 시도해주세요.");
-    }
+      setPuzzleFeedback(null);
   };
 
   const handleQuizAnswer = (option: string) => {
     if (!data) return;
     const currentQuiz = data.quizzes[quizIdx];
+    
     if (option === currentQuiz.answer) {
-      // Correct
-      if (quizIdx < data.quizzes.length - 1) {
-        setQuizIdx(prev => prev + 1);
-      } else {
-        setPhase('PUZZLE');
-        setMessage("마지막 관문: 문장을 올바르게 조립하세요!");
+      setQuizFeedback({ isCorrect: true, text: "정답입니다!" });
+      if (quizMistakeCount === 0) {
+        setSessionStats(prev => ({ ...prev, quizCorrect: prev.quizCorrect + 1 }));
       }
+      
+      setTimeout(() => {
+        if (quizIdx < data.quizzes.length - 1) {
+          setQuizIdx(prev => prev + 1);
+          setQuizFeedback(null);
+          setQuizMistakeCount(0);
+        } else {
+          setPhase('PUZZLE');
+          setPuzzleFeedback(null);
+        }
+      }, 1000);
     } else {
-      // Wrong
-      alert("틀렸습니다! 다시 생각해보세요.\n\n" + currentQuiz.explanation);
+      setQuizMistakeCount(prev => prev + 1);
+      setQuizFeedback({ isCorrect: false, text: currentQuiz.explanation });
     }
   };
 
@@ -117,31 +155,58 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
       setPlacedBlocks(prev => prev.filter(b => b !== block));
       setAvailableBlocks(prev => [...prev, block]);
     }
-    setMessage("");
-    setIsError(false);
+    setPuzzleFeedback(null);
   };
 
   const checkPuzzle = () => {
     if (!data) return;
+    const currentPuzzle = data.puzzles[puzzleIdx];
     
     // Check for Trap
-    if (data.puzzle.distractor && placedBlocks.includes(data.puzzle.distractor)) {
-      setIsError(true);
-      setMessage("🚨 함정 카드 발동! 불필요한 단어가 섞여 있습니다.");
+    if (currentPuzzle.distractor && placedBlocks.includes(currentPuzzle.distractor)) {
+      setPuzzleMistakeCount(prev => prev + 1);
+      setPuzzleFeedback({ type: 'error', text: "🚨 함정 카드 발동! 문법적으로 어색한 단어(Trap)가 섞여 있습니다." });
       return;
     }
 
     // Check Order
     const currentStr = placedBlocks.join(" ").replace(/\s+/g, " ").trim();
-    const correctStr = data.puzzle.correct_order.join(" ").replace(/\s+/g, " ").trim();
+    const correctStr = currentPuzzle.correct_order.join(" ").replace(/\s+/g, " ").trim();
 
     if (currentStr === correctStr) {
-      setPhase('SUCCESS');
+      // Correct
+      setPuzzleFeedback({ type: 'success', text: "Perfect! 다음 문장으로 넘어갑니다." });
+      if (puzzleMistakeCount === 0) {
+        setSessionStats(prev => ({ ...prev, puzzleCorrect: prev.puzzleCorrect + 1 }));
+      }
+
+      setTimeout(() => {
+        if (puzzleIdx < data.puzzles.length - 1) {
+          const nextIdx = puzzleIdx + 1;
+          setPuzzleIdx(nextIdx);
+          preparePuzzle(data.puzzles[nextIdx]);
+          setPuzzleMistakeCount(0);
+        } else {
+          setPhase('DIAGNOSIS');
+        }
+      }, 1000);
+
     } else {
-      setIsError(true);
-      setMessage("순서가 틀렸거나 블록이 부족합니다.");
+      setPuzzleMistakeCount(prev => prev + 1);
+      setPuzzleFeedback({ type: 'error', text: "순서가 틀렸거나 블록이 부족합니다. 해석을 다시 참고하세요." });
     }
   };
+
+  // Helper for Exit Button
+  const renderExitButton = () => (
+    <button 
+      onClick={onBack} 
+      className="absolute top-4 right-4 p-2 bg-white/50 hover:bg-white rounded-full text-slate-500 hover:text-red-500 transition-colors z-50"
+      title="홈으로 나가기"
+    >
+      <X size={24} />
+    </button>
+  );
 
   // --- RENDERERS ---
 
@@ -168,13 +233,13 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
               onClick={() => setLevel('beginner')} 
               className={`px-6 py-2 rounded-full font-bold transition-all shadow-md ${level === 'beginner' ? 'bg-indigo-600 text-white scale-105 ring-2 ring-indigo-300' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
             >
-              초급 (덩어리 배열)
+              기본 (개념 탑재)
             </button>
             <button 
               onClick={() => setLevel('advanced')} 
               className={`px-6 py-2 rounded-full font-bold transition-all shadow-md ${level === 'advanced' ? 'bg-red-500 text-white scale-105 ring-2 ring-red-300' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
             >
-              고급 (함정 포함)
+              심화 (함정 & 비교)
             </button>
           </div>
 
@@ -216,15 +281,17 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
     return (
       <div className="min-h-screen bg-indigo-50 flex flex-col items-center justify-center p-4 text-center">
         <Loader2 size={64} className="text-indigo-600 animate-spin mb-6"/>
-        <h2 className="text-2xl font-black text-indigo-900 mb-2">AI 선생님이 수업 자료를 만들고 있어요!</h2>
-        <p className="text-slate-500 font-medium">개념 정리 → 퀴즈 → 퍼즐 생성 중...</p>
+        <h2 className="text-2xl font-black text-indigo-900 mb-2">AI가 '바람직한 어려움'을 생성 중입니다...</h2>
+        <p className="text-slate-500 font-medium">함정 문제와 헷갈리는 개념(VS)을 준비하고 있습니다.</p>
+        <p className="text-indigo-400 font-bold mt-4">7개의 실전 퍼즐 생성 중</p>
       </div>
     );
   }
 
   if (phase === 'CONCEPT' && data) {
     return (
-      <div className="min-h-screen bg-indigo-50 p-4 md:p-8 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-indigo-50 p-4 md:p-8 flex flex-col items-center justify-center relative">
+        {renderExitButton()}
         <div className="max-w-2xl w-full bg-white rounded-3xl p-6 md:p-10 shadow-2xl border-t-8 border-indigo-500 animate-fade-in">
           <header className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
              <h2 className="text-2xl md:text-3xl font-black text-indigo-900 flex items-center gap-3">
@@ -234,8 +301,9 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
              <span className="px-3 py-1 bg-indigo-100 text-indigo-700 font-bold rounded-full text-sm">Step 1/3</span>
           </header>
           
-          <h3 className="text-2xl font-bold text-slate-800 mb-6 text-center">{data.concept.title}</h3>
+          <h3 className="text-3xl font-black text-slate-800 mb-6 text-center">{data.concept.title}</h3>
           
+          {/* Summary */}
           <div className="bg-slate-50 rounded-2xl p-6 mb-6 border border-slate-200">
             <ul className="space-y-4">
               {data.concept.summary.map((line, i) => (
@@ -247,13 +315,33 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
             </ul>
           </div>
 
-          <div className="bg-amber-50 text-amber-900 p-6 rounded-2xl font-medium mb-8 border border-amber-100 flex items-start gap-3">
-             <span className="font-black bg-amber-200 px-2 rounded text-amber-800 text-sm mt-1">예문</span>
-             <span className="text-lg italic">"{data.concept.example}"</span>
+          {/* VS & Traps Section (New) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+             <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                <h4 className="flex items-center gap-2 font-black text-amber-600 mb-2">
+                   <Scale size={20}/> 헷갈리는 포인트 (VS)
+                </h4>
+                <p className="text-sm font-medium text-amber-900 leading-relaxed">
+                   {data.concept.key_distinction || "비슷한 개념과의 차이를 확실히 알아야 합니다."}
+                </p>
+             </div>
+             <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                <h4 className="flex items-center gap-2 font-black text-red-600 mb-2">
+                   <Siren size={20}/> 시험 함정 (Trap)
+                </h4>
+                <p className="text-sm font-medium text-red-900 leading-relaxed">
+                   {data.concept.exam_tip || "시험에서는 이 부분을 바꿔서 오답을 유도합니다."}
+                </p>
+             </div>
+          </div>
+
+          <div className="bg-slate-800 text-white p-6 rounded-2xl font-medium mb-8 border border-slate-700 flex flex-col items-center text-center gap-2">
+             <span className="font-black bg-slate-600 px-2 py-1 rounded text-xs uppercase tracking-wider">Example</span>
+             <span className="text-xl italic">"{data.concept.example}"</span>
           </div>
 
           <button onClick={() => setPhase('QUIZ')} className="w-full py-5 bg-indigo-600 text-white text-xl font-bold rounded-2xl shadow-xl hover:bg-indigo-700 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform">
-            이해했습니다! 퀴즈 풀기 <ArrowRight/>
+            함정 피하러 가기 (Quiz) <ArrowRight/>
           </button>
         </div>
       </div>
@@ -263,27 +351,45 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
   if (phase === 'QUIZ' && data) {
     const quiz = data.quizzes[quizIdx];
     return (
-      <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex flex-col items-center justify-center relative">
+         {renderExitButton()}
          <div className="w-full max-w-lg">
            <div className="mb-6 flex justify-between items-center text-slate-500 font-bold">
-             <span className="flex items-center gap-2"><Zap size={18}/> 스피드 퀴즈</span>
+             <span className="flex items-center gap-2"><Zap size={18}/> 실전 모의고사</span>
              <span className="bg-white px-3 py-1 rounded-full shadow-sm">{quizIdx + 1} / {data.quizzes.length}</span>
            </div>
            
-           <div className="bg-white rounded-3xl p-8 shadow-xl text-center animate-fade-in">
-             <h3 className="text-2xl md:text-3xl font-black text-slate-800 mb-10 leading-snug break-keep">{quiz.question}</h3>
+           <div className="bg-white rounded-3xl p-8 shadow-xl text-center animate-fade-in border-b-8 border-slate-200">
+             <div className="inline-block px-3 py-1 bg-red-100 text-red-600 font-black text-xs rounded-full mb-4">함정 주의</div>
+             <h3 className="text-xl md:text-2xl font-bold text-slate-800 mb-6 leading-relaxed break-keep">
+               {quiz.question}
+             </h3>
              
-             <div className="grid grid-cols-1 gap-4">
+             <div className="grid grid-cols-1 gap-4 mb-6">
                {quiz.options.map((opt) => (
                  <button 
                    key={opt}
                    onClick={() => handleQuizAnswer(opt)}
-                   className="py-5 bg-slate-50 border-2 border-slate-200 rounded-2xl text-xl font-bold text-slate-700 hover:border-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 transition-all active:scale-95 shadow-sm"
+                   disabled={quizFeedback !== null && quizFeedback.isCorrect}
+                   className="py-5 bg-slate-50 border-2 border-slate-200 rounded-2xl text-lg font-bold text-slate-700 hover:border-indigo-500 hover:bg-indigo-50 hover:text-indigo-700 transition-all active:scale-95 shadow-sm flex items-center justify-center disabled:opacity-50"
                  >
                    {opt}
                  </button>
                ))}
              </div>
+
+             {/* On-screen Feedback Area */}
+             {quizFeedback && (
+               <div className={`p-4 rounded-xl border-2 animate-fade-in ${quizFeedback.isCorrect ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                 <div className="flex items-center justify-center gap-2 font-black text-lg mb-1">
+                   {quizFeedback.isCorrect ? <CheckCircle /> : <XCircle />}
+                   {quizFeedback.isCorrect ? "정답입니다!" : "오답입니다!"}
+                 </div>
+                 {!quizFeedback.isCorrect && (
+                   <p className="font-medium text-sm leading-relaxed">{quizFeedback.text}</p>
+                 )}
+               </div>
+             )}
            </div>
          </div>
       </div>
@@ -291,25 +397,30 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
   }
 
   if (phase === 'PUZZLE' && data) {
+    const currentPuzzle = data.puzzles[puzzleIdx];
     return (
-      <div className="min-h-screen bg-slate-200 p-4 flex flex-col items-center">
-        <header className="w-full max-w-4xl bg-white p-4 rounded-xl shadow-sm mb-6 flex justify-between items-center">
+      <div className="min-h-screen bg-slate-200 p-4 flex flex-col items-center relative">
+        {renderExitButton()}
+        <header className="w-full max-w-4xl bg-white p-4 rounded-xl shadow-sm mb-6 flex justify-between items-center mt-12 md:mt-0">
            <h2 className="font-bold text-slate-700 flex items-center gap-2">
              <Layers className="text-indigo-500"/> 구문 테트리스
+             <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs">
+                {puzzleIdx + 1} / {data.puzzles.length}
+             </span>
            </h2>
-           <div className={`text-sm font-bold px-4 py-2 rounded-full shadow-sm transition-colors ${isError ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-indigo-100 text-indigo-600'}`}>
-             {message || (level === 'advanced' ? "⚠️ 함정(Trap) 단어가 숨어있습니다!" : "의미 단위로 순서대로 배열하세요.")}
+           <div className={`text-sm font-bold px-4 py-2 rounded-full shadow-sm transition-colors bg-indigo-100 text-indigo-600`}>
+             {level === 'advanced' ? "⚠️ 함정(Trap) 단어가 숨어있습니다!" : "의미 단위로 순서대로 배열하세요."}
            </div>
         </header>
 
         <div className="bg-white/60 backdrop-blur-sm px-8 py-4 rounded-full mb-8 shadow-sm">
            <p className="text-xl md:text-2xl font-bold text-slate-800 text-center">
-             "{data.puzzle.sentence_translation}"
+             "{currentPuzzle.sentence_translation}"
            </p>
         </div>
 
         {/* Drop Zone */}
-        <div className="w-full max-w-4xl min-h-[140px] bg-white rounded-3xl shadow-inner border-4 border-slate-300 p-6 flex flex-wrap gap-3 items-center justify-center mb-10 transition-colors hover:border-slate-400">
+        <div className="w-full max-w-4xl min-h-[140px] bg-white rounded-3xl shadow-inner border-4 border-slate-300 p-6 flex flex-wrap gap-3 items-center justify-center mb-6 transition-colors hover:border-slate-400">
            {placedBlocks.length === 0 && (
              <div className="text-slate-300 font-bold flex flex-col items-center gap-2">
                <ArrowRight className="rotate-90" size={32}/>
@@ -323,6 +434,13 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
            ))}
         </div>
 
+        {/* Feedback Zone */}
+        {puzzleFeedback && (
+          <div className={`w-full max-w-4xl mb-6 p-4 rounded-xl text-center font-bold animate-fade-in border-2 ${puzzleFeedback.type === 'success' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'}`}>
+             {puzzleFeedback.text}
+          </div>
+        )}
+
         {/* Source Zone */}
         <div className="w-full max-w-4xl flex flex-wrap gap-4 justify-center mb-12">
            {availableBlocks.map((block, i) => (
@@ -332,25 +450,78 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
            ))}
         </div>
 
-        <button onClick={checkPuzzle} className="px-16 py-5 bg-indigo-600 text-white text-2xl font-black rounded-full shadow-2xl hover:bg-indigo-700 active:scale-95 transition-transform ring-4 ring-indigo-200">
-          제출하기 (Submit)
+        <button 
+           onClick={checkPuzzle} 
+           disabled={puzzleFeedback?.type === 'success'}
+           className="px-16 py-5 bg-indigo-600 text-white text-2xl font-black rounded-full shadow-2xl hover:bg-indigo-700 active:scale-95 transition-transform ring-4 ring-indigo-200 disabled:opacity-50"
+        >
+          {puzzleFeedback?.type === 'success' ? 'Good Job!' : '제출하기 (Submit)'}
         </button>
       </div>
     );
   }
 
-  if (phase === 'SUCCESS') {
+  if (phase === 'DIAGNOSIS' && data) {
+    const totalPuzzles = data.puzzles.length;
+    const puzzleScore = Math.round((sessionStats.puzzleCorrect / totalPuzzles) * 100);
+    
+    let diagnosisMessage = "";
+    if (puzzleScore === 100) diagnosisMessage = "완벽합니다! 이 문법 개념을 완전히 마스터하셨네요.";
+    else if (puzzleScore >= 70) diagnosisMessage = "잘하고 있습니다! 함정에만 조금 더 주의하세요.";
+    else diagnosisMessage = "아직 헷갈리는 부분이 있는 것 같아요. 다시 한번 도전해보세요!";
+
     return (
-       <div className="min-h-screen bg-green-500 flex flex-col items-center justify-center text-white p-8">
-          <div className="bg-white/20 p-8 rounded-full mb-8 animate-bounce backdrop-blur-sm">
-             <CheckCircle size={100} />
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-8 relative">
+        {renderExitButton()}
+        <div className="bg-white rounded-3xl p-8 shadow-2xl border-2 border-indigo-100 max-w-2xl w-full text-center animate-fade-in">
+          <div className="flex items-center justify-center gap-3 mb-6">
+            <div className="p-3 bg-indigo-100 rounded-full text-indigo-600">
+              <Activity size={32} />
+            </div>
+            <h2 className="text-3xl font-black text-slate-800">문법 학습 진단</h2>
           </div>
-          <h1 className="text-6xl font-black mb-4 tracking-tighter">PERFECT!</h1>
-          <p className="text-2xl opacity-90 mb-12 font-medium">문법 수리를 완벽하게 마쳤습니다.</p>
-          <button onClick={onBack} className="px-10 py-4 bg-white text-green-600 rounded-full font-black text-xl shadow-2xl hover:scale-105 transition-transform">
-            월드맵으로 돌아가기
-          </button>
-       </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <span className="text-sm text-slate-500 font-bold uppercase block mb-1">퀴즈 정답률</span>
+              <span className="text-3xl font-black text-slate-800">
+                {sessionStats.quizCorrect}/{data.quizzes.length}
+              </span>
+            </div>
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <span className="text-sm text-slate-500 font-bold uppercase block mb-1">퍼즐 정답률</span>
+              <span className={`text-4xl font-black ${puzzleScore >= 80 ? 'text-green-500' : puzzleScore >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                {puzzleScore}%
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 mb-8 text-left">
+             <h3 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
+               <Brain size={18} /> AI 피드백
+             </h3>
+             <p className="text-indigo-800 leading-relaxed font-medium">
+               "{diagnosisMessage}"
+             </p>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button 
+              onClick={() => loadTopic(currentTopic, true)}
+              className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 transition-transform active:scale-95"
+            >
+              <RefreshCcw size={20} />
+              새로운 7문제 더 풀기 (심화 학습)
+            </button>
+            <button 
+              onClick={onBack}
+              className="w-full py-3 text-slate-400 font-bold hover:text-slate-600 flex items-center justify-center gap-2"
+            >
+              홈으로 나가기
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 

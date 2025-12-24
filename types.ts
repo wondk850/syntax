@@ -1,3 +1,4 @@
+
 export enum GameStep {
   LOADING = 0,        // AI 생성 중
   HEAD_NOUN = 1,      // 1단계: 명사 찾기
@@ -104,7 +105,9 @@ export interface GrammarPuzzle {
 export interface GrammarData {
   concept: {
     title: string;
-    summary: string[]; // 3-line summary
+    summary: string[]; // Basic definition
+    key_distinction: string; // VS Concept (e.g. What vs That)
+    exam_tip: string; // "Trap" warning
     example: string;
   };
   quizzes: {
@@ -113,5 +116,5 @@ export interface GrammarData {
     answer: string;
     explanation: string;
   }[];
-  puzzle: GrammarPuzzle;
+  puzzles: GrammarPuzzle[]; // Changed from single puzzle to array of 7
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GrammarData, GrammarLevel } from '../types';
 import { generateGrammarData } from '../services/ai';
-import { Loader2, ArrowRight, Brain, CheckCircle, XCircle, Siren, Home, Map, Zap, Layers, AlertTriangle, Scale, X, Activity, RefreshCcw, BookOpen, GraduationCap, Sparkles, RotateCcw, Cpu } from 'lucide-react';
+import { Loader2, ArrowRight, Brain, CheckCircle, XCircle, Siren, Home, Zap, Layers, Scale, X, Activity, RefreshCcw, BookOpen, GraduationCap, Sparkles, RotateCcw, Wrench } from 'lucide-react';
 
 interface GrammarModeProps {
   onBack: () => void;
@@ -16,14 +16,14 @@ const LinkIcon = ({ size, className }: { size: number, className?: string }) => 
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
 );
 
-// Organized "Map" of Grammar Topics
+// Organized "Map" of Grammar Topics - Updated Colors to Warm Tones (Red/Orange/Rose)
 const GRAMMAR_ZONES = [
   {
     id: 'verbals',
     title: '동사의 변신 (Verbals)',
     subtitle: '동사가 가면을 쓰고 명사/형용사로 변신!',
-    icon: <Zap size={24} className="text-amber-500" />,
-    color: 'bg-amber-50 border-amber-200 text-amber-900',
+    icon: <Zap size={24} className="text-orange-500" />,
+    color: 'bg-orange-50 border-orange-200 text-orange-900',
     topics: [
       { id: 'to_inf_noun', label: 'To부정사 (명사적)', eng: 'To-Inf (Noun)' },
       { id: 'to_inf_adj', label: 'To부정사 (형용사/부사)', eng: 'To-Inf (Adj/Adv)' },
@@ -35,8 +35,8 @@ const GRAMMAR_ZONES = [
     id: 'connectors',
     title: '문장 연결고리 (Connectors)',
     subtitle: '짧은 문장을 길게 이어 붙이는 마법',
-    icon: <LinkIcon size={24} className="text-indigo-500" />,
-    color: 'bg-indigo-50 border-indigo-200 text-indigo-900',
+    icon: <LinkIcon size={24} className="text-rose-500" />,
+    color: 'bg-rose-50 border-rose-200 text-rose-900',
     topics: [
       { id: 'rel_pronoun', label: '관계대명사 (주격/목적격)', eng: 'Rel. Pronoun' },
       { id: 'rel_adverb', label: '관계부사 (Where/When)', eng: 'Rel. Adverb' },
@@ -48,8 +48,8 @@ const GRAMMAR_ZONES = [
     id: 'structure',
     title: '문장의 맛 (Voice & Mood)',
     subtitle: '문장의 느낌과 태도를 바꿔보자!',
-    icon: <Layers size={24} className="text-emerald-500" />,
-    color: 'bg-emerald-50 border-emerald-200 text-emerald-900',
+    icon: <Layers size={24} className="text-red-500" />,
+    color: 'bg-red-50 border-red-200 text-red-900',
     topics: [
       { id: 'passive', label: '수동태', eng: 'Passive Voice' },
       { id: 'subjunctive', label: '가정법 과거', eng: 'Subjunctive Past' },
@@ -99,7 +99,6 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
   const loadTopic = async (topicLabel: string, isRetry = false) => {
     setCurrentTopic(topicLabel);
     setPhase('LOADING');
-    // Pass the full label (Korean + English) to AI so it knows exactly what to teach
     const result = await generateGrammarData(topicLabel, level);
     if (result && result.puzzles && result.puzzles.length > 0) {
       setData(result);
@@ -117,7 +116,7 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
       preparePuzzle(result.puzzles[0]);
 
       if (isRetry) {
-         setPhase('PUZZLE'); // Skip concept/quiz on retry
+         setPhase('PUZZLE'); 
       } else {
          setPhase('CONCEPT');
       }
@@ -164,11 +163,10 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
           setPhase('PUZZLE');
           setPuzzleFeedback(null);
         }
-      }, 2500); // Give more time to read the full explanation
+      }, 2500);
     } else {
       // WRONG
       setQuizMistakeCount(prev => prev + 1);
-      // Show specific hint for this distractor, NOT the full explanation
       const hint = currentQuiz.distractor_hints?.[optionIdx] || "오답입니다. 다시 생각해보세요.";
       setQuizFeedback({ isCorrect: false, text: hint });
     }
@@ -230,7 +228,6 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
     }
   };
 
-  // Helper for Exit Button
   const renderExitButton = () => (
     <button 
       onClick={onBack} 
@@ -248,35 +245,33 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
       <div className="min-h-screen bg-slate-100 p-4 md:p-8 flex flex-col items-center">
         <div className="max-w-4xl w-full">
           <header className="flex items-center justify-between mb-8">
-             <button onClick={onBack} className="p-3 bg-white rounded-full shadow-md text-slate-600 hover:text-indigo-600 transition-colors">
+             <button onClick={onBack} className="p-3 bg-white rounded-full shadow-md text-slate-600 hover:text-rose-600 transition-colors">
                <Home size={24}/>
              </button>
              <div className="text-center">
                <h2 className="text-3xl font-black text-slate-800 flex items-center gap-2 justify-center font-brand">
-                 WONSUMMER <span className="text-indigo-600">GRAMMAR</span>
+                 SWEEP <span className="text-rose-600">FIXER</span>
                </h2>
                <p className="text-slate-500 font-medium">Concept Installation & Pattern Optimization</p>
              </div>
-             <div className="w-12"></div> {/* Spacer */}
+             <div className="w-12"></div>
           </header>
 
-          {/* Level Toggle */}
           <div className="flex justify-center gap-4 mb-10">
             <button 
               onClick={() => setLevel('beginner')} 
-              className={`px-6 py-2 rounded-full font-bold transition-all shadow-md ${level === 'beginner' ? 'bg-indigo-600 text-white scale-105 ring-2 ring-indigo-300' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
+              className={`px-6 py-2 rounded-full font-bold transition-all shadow-md ${level === 'beginner' ? 'bg-rose-600 text-white scale-105 ring-2 ring-rose-300' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
             >
               기본 (개념 탑재)
             </button>
             <button 
               onClick={() => setLevel('advanced')} 
-              className={`px-6 py-2 rounded-full font-bold transition-all shadow-md ${level === 'advanced' ? 'bg-red-500 text-white scale-105 ring-2 ring-red-300' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
+              className={`px-6 py-2 rounded-full font-bold transition-all shadow-md ${level === 'advanced' ? 'bg-slate-800 text-white scale-105 ring-2 ring-slate-400' : 'bg-white text-slate-400 hover:bg-slate-50'}`}
             >
               심화 (함정 & 비교)
             </button>
           </div>
 
-          {/* Map Zones */}
           <div className="space-y-8 pb-12">
             {GRAMMAR_ZONES.map((zone) => (
               <div key={zone.id} className={`rounded-3xl p-6 md:p-8 border-2 shadow-sm ${zone.color} transition-all hover:shadow-lg`}>
@@ -312,12 +307,12 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
 
   if (phase === 'LOADING') {
     return (
-      <div className="min-h-screen bg-indigo-50 flex flex-col items-center justify-center p-4 text-center">
-        <Loader2 size={64} className="text-indigo-600 animate-spin mb-6"/>
-        <h2 className="text-2xl font-black text-indigo-900 mb-2">AI가 '바람직한 어려움'을 생성 중입니다...</h2>
-        <p className="text-slate-500 font-medium">5지선다 문제와 개념적 힌트를 준비하고 있습니다.</p>
+      <div className="min-h-screen bg-rose-50 flex flex-col items-center justify-center p-4 text-center">
+        <Loader2 size={64} className="text-rose-600 animate-spin mb-6"/>
+        <h2 className="text-2xl font-black text-rose-900 mb-2">AI 수리공이 문제를 조립 중입니다...</h2>
+        <p className="text-slate-500 font-medium">5지선다 진단 키트와 퍼즐을 준비하고 있습니다.</p>
         {initialTopic && (
-            <p className="text-sm font-bold text-indigo-400 mt-2 bg-indigo-100 px-3 py-1 rounded-full inline-block animate-bounce">
+            <p className="text-sm font-bold text-rose-100 mt-2 bg-rose-600 px-3 py-1 rounded-full inline-block animate-bounce">
                 Repair Mode: 집중 클리닉 가동
             </p>
         )}
@@ -327,32 +322,30 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
 
   if (phase === 'CONCEPT' && data) {
     return (
-      <div className="min-h-screen bg-indigo-50 p-4 md:p-8 flex flex-col items-center justify-center relative">
+      <div className="min-h-screen bg-rose-50 p-4 md:p-8 flex flex-col items-center justify-center relative">
         {renderExitButton()}
-        <div className="max-w-2xl w-full bg-white rounded-3xl p-6 md:p-10 shadow-2xl border-t-8 border-indigo-500 animate-fade-in">
+        <div className="max-w-2xl w-full bg-white rounded-3xl p-6 md:p-10 shadow-2xl border-t-8 border-rose-500 animate-fade-in">
           <header className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100">
-             <h2 className="text-2xl md:text-3xl font-black text-indigo-900 flex items-center gap-3">
-               <Brain className="text-indigo-500" size={32}/> 
+             <h2 className="text-2xl md:text-3xl font-black text-rose-900 flex items-center gap-3">
+               <Brain className="text-rose-500" size={32}/> 
                <span>개념 쏙쏙 (Concept)</span>
              </h2>
-             <span className="px-3 py-1 bg-indigo-100 text-indigo-700 font-bold rounded-full text-sm">Step 1/3</span>
+             <span className="px-3 py-1 bg-rose-100 text-rose-700 font-bold rounded-full text-sm">Step 1/3</span>
           </header>
           
           <h3 className="text-3xl font-black text-slate-800 mb-6 text-center">{data.concept.title}</h3>
           
-          {/* Summary */}
           <div className="bg-slate-50 rounded-2xl p-6 mb-6 border border-slate-200">
             <ul className="space-y-4">
               {data.concept.summary.map((line, i) => (
                 <li key={i} className="flex items-start gap-4 text-slate-700 font-bold text-lg leading-relaxed">
-                  <span className="bg-indigo-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-black shrink-0 shadow-md">{i+1}</span>
+                  <span className="bg-rose-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-black shrink-0 shadow-md">{i+1}</span>
                   {line}
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* VS & Traps Section (New) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
                 <h4 className="flex items-center gap-2 font-black text-amber-600 mb-2">
@@ -377,7 +370,7 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
              <span className="text-xl italic">"{data.concept.example}"</span>
           </div>
 
-          <button onClick={() => setPhase('QUIZ')} className="w-full py-5 bg-indigo-600 text-white text-xl font-bold rounded-2xl shadow-xl hover:bg-indigo-700 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform">
+          <button onClick={() => setPhase('QUIZ')} className="w-full py-5 bg-rose-600 text-white text-xl font-bold rounded-2xl shadow-xl hover:bg-rose-700 flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform">
             함정 피하러 가기 (Quiz) <ArrowRight/>
           </button>
         </div>
@@ -412,7 +405,7 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
                      py-4 px-6 rounded-xl text-lg font-bold text-left transition-all border-2 shadow-sm flex items-center gap-3
                      ${selectedOptionIdx === idx 
                         ? (quizFeedback?.isCorrect ? 'bg-green-100 border-green-500 text-green-800' : 'bg-red-50 border-red-200 text-red-800') 
-                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-indigo-500 hover:bg-indigo-50'}
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-rose-500 hover:bg-rose-50'}
                      disabled:opacity-70
                    `}
                  >
@@ -432,7 +425,6 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
                    {quizFeedback.isCorrect ? "정답입니다!" : "다시 생각해보세요."}
                  </div>
                  <p className="font-medium text-sm leading-relaxed whitespace-pre-wrap">
-                    {/* Socratic Hint Logic: Show hint if wrong, Full explanation if correct */}
                     {quizFeedback.isCorrect ? (
                         <span className="text-green-800">{quizFeedback.text}</span>
                     ) : (
@@ -457,12 +449,12 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
         {renderExitButton()}
         <header className="w-full max-w-4xl bg-white p-4 rounded-xl shadow-sm mb-6 flex justify-between items-center mt-12 md:mt-0">
            <h2 className="font-bold text-slate-700 flex items-center gap-2">
-             <Layers className="text-indigo-500"/> 구문 테트리스
-             <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs">
+             <Layers className="text-rose-500"/> 구문 테트리스
+             <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full text-xs">
                 {puzzleIdx + 1} / {data.puzzles.length}
              </span>
            </h2>
-           <div className={`text-sm font-bold px-4 py-2 rounded-full shadow-sm transition-colors bg-indigo-100 text-indigo-600`}>
+           <div className={`text-sm font-bold px-4 py-2 rounded-full shadow-sm transition-colors bg-rose-100 text-rose-600`}>
              {level === 'advanced' ? "⚠️ 함정(Trap) 단어가 숨어있습니다!" : "의미 단위로 순서대로 배열하세요."}
            </div>
         </header>
@@ -482,7 +474,7 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
              </div>
            )}
            {placedBlocks.map((block, i) => (
-             <button key={`${block}-${i}`} onClick={() => handleBlockClick(block, 'placed')} className="bg-indigo-600 text-white px-5 py-3 rounded-xl font-bold shadow-lg hover:bg-red-500 transition-all animate-fade-in active:scale-95 text-lg">
+             <button key={`${block}-${i}`} onClick={() => handleBlockClick(block, 'placed')} className="bg-rose-600 text-white px-5 py-3 rounded-xl font-bold shadow-lg hover:bg-slate-700 transition-all animate-fade-in active:scale-95 text-lg">
                {block}
              </button>
            ))}
@@ -508,7 +500,7 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
         {/* Source Zone */}
         <div className="w-full max-w-4xl flex flex-wrap gap-4 justify-center mb-12">
            {availableBlocks.map((block, i) => (
-             <button key={`${block}-${i}`} onClick={() => handleBlockClick(block, 'available')} className="bg-white text-slate-800 border-b-4 border-slate-200 px-5 py-4 rounded-2xl font-bold shadow-sm hover:border-indigo-500 hover:-translate-y-1 transition-all text-lg active:border-b-0 active:translate-y-1">
+             <button key={`${block}-${i}`} onClick={() => handleBlockClick(block, 'available')} className="bg-white text-slate-800 border-b-4 border-slate-200 px-5 py-4 rounded-2xl font-bold shadow-sm hover:border-rose-500 hover:-translate-y-1 transition-all text-lg active:border-b-0 active:translate-y-1">
                {block}
              </button>
            ))}
@@ -517,7 +509,7 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
         <button 
            onClick={checkPuzzle} 
            disabled={puzzleFeedback?.type === 'success'}
-           className="px-16 py-5 bg-indigo-600 text-white text-2xl font-black rounded-full shadow-2xl hover:bg-indigo-700 active:scale-95 transition-transform ring-4 ring-indigo-200 disabled:opacity-50"
+           className="px-16 py-5 bg-rose-600 text-white text-2xl font-black rounded-full shadow-2xl hover:bg-rose-700 active:scale-95 transition-transform ring-4 ring-rose-200 disabled:opacity-50"
         >
           {puzzleFeedback?.type === 'success' ? 'Good Job!' : '제출하기 (Submit)'}
         </button>
@@ -535,9 +527,9 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-8 relative">
         {renderExitButton()}
-        <div className="bg-white rounded-3xl p-8 shadow-2xl border-2 border-indigo-100 max-w-2xl w-full text-center animate-fade-in">
+        <div className="bg-white rounded-3xl p-8 shadow-2xl border-2 border-rose-100 max-w-2xl w-full text-center animate-fade-in">
           <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="p-3 bg-indigo-100 rounded-full text-indigo-600">
+            <div className="p-3 bg-rose-100 rounded-full text-rose-600">
               <Activity size={32} />
             </div>
             <h2 className="text-3xl font-black text-slate-800">학습 진단 리포트</h2>
@@ -559,7 +551,6 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
             </div>
           </div>
 
-          {/* AI Study Guide */}
           <div className={`p-6 rounded-2xl border-l-8 mb-8 text-left ${isMastered ? 'bg-green-50 border-green-500' : 'bg-amber-50 border-amber-500'}`}>
              <h3 className={`font-bold text-lg mb-3 flex items-center gap-2 ${isMastered ? 'text-green-800' : 'text-amber-800'}`}>
                {isMastered ? <GraduationCap/> : <BookOpen/>}
@@ -575,7 +566,7 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
                            onClick={() => initialTopic && onGoToSyntax(initialTopic)}
                            className="w-full py-3 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 shadow-md flex items-center justify-center gap-2 mt-2 animate-bounce"
                         >
-                            <Sparkles size={18} /> 문장 청소기에서 실전 훈련하기 (Apply)
+                            <Sparkles size={18} /> SWEEP 청소기에서 실전 훈련하기 (Apply)
                         </button>
                     </div>
                 ) : (

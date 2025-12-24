@@ -57,7 +57,7 @@ export const ToolsPanel: React.FC<ToolsPanelProps> = ({
         <div>
           <h3 className="font-bold text-indigo-900 flex items-center gap-2">
             <BookOpen size={18} />
-            문법 코드 족보
+            SWEEP 족보
           </h3>
           <p className="text-xs text-indigo-700 mt-1">
             총 17개 유형 전체 보기

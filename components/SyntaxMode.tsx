@@ -554,7 +554,7 @@ export const SyntaxMode: React.FC<SyntaxModeProps> = ({ onBack, initialFocusCode
                 <Home size={24} />
               </button>
               <h1 className="text-4xl md:text-6xl font-black text-indigo-900 mb-4 tracking-tight font-brand">
-                SYNTAX <span className="text-indigo-500">ARENA</span>
+                SWEEP <span className="text-indigo-500">ARENA</span>
               </h1>
               {initialFocusCode && (
                   <div className="inline-block px-4 py-1 bg-amber-100 text-amber-800 rounded-full font-bold mb-4 animate-bounce">

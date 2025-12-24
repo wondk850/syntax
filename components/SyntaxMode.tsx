@@ -8,7 +8,7 @@ import { DiagnosisView } from './DiagnosisView';
 import { TutorialOverlay } from './TutorialOverlay';
 import { ToolsPanel } from './ToolsPanel';
 import { CustomInputModal } from './CustomInputModal';
-import { Trophy, Zap, RotateCcw, Layout, ArrowRight, BookOpen, AlertCircle, Loader2, TrendingUp, CheckCircle, Link, Volume2, ClipboardPaste, Home, Wrench, Activity, RefreshCcw } from 'lucide-react';
+import { Trophy, Zap, RotateCcw, Layout, ArrowRight, BookOpen, AlertCircle, Loader2, TrendingUp, CheckCircle, Link, Volume2, ClipboardPaste, Home, Wrench, Activity, RefreshCcw, Component } from 'lucide-react';
 
 // --- Audio Helper Functions (Duplicated here for safety/isolation) ---
 function decode(base64: string) {
@@ -553,15 +553,15 @@ export const SyntaxMode: React.FC<SyntaxModeProps> = ({ onBack, initialFocusCode
               <button onClick={onBack} className="absolute left-0 top-0 p-3 bg-white rounded-full shadow-md text-slate-600 hover:text-indigo-600">
                 <Home size={24} />
               </button>
-              <h1 className="text-4xl md:text-6xl font-black text-indigo-900 mb-4 tracking-tight">
-                SYNTAX CLEANER <span className="text-indigo-500">PRO</span>
+              <h1 className="text-4xl md:text-6xl font-black text-indigo-900 mb-4 tracking-tight font-brand">
+                SYNTAX <span className="text-indigo-500">ARENA</span>
               </h1>
               {initialFocusCode && (
                   <div className="inline-block px-4 py-1 bg-amber-100 text-amber-800 rounded-full font-bold mb-4 animate-bounce">
                     Target Code: {initialFocusCode} 집중 훈련 중
                   </div>
               )}
-              <p className="text-xl text-slate-500">문장 구조 청소 및 동사 찾기 훈련</p>
+              <p className="text-xl text-slate-500">Structural Analysis & Logic Training</p>
            </header>
            
            {/* Normal Menu */}

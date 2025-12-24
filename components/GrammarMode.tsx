@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { GrammarData, GrammarLevel } from '../types';
 import { generateGrammarData } from '../services/ai';
-import { Loader2, ArrowRight, Brain, CheckCircle, XCircle, Siren, Home, Map, Zap, Layers, AlertTriangle, Scale, X, Activity, RefreshCcw, BookOpen, GraduationCap, Sparkles } from 'lucide-react';
+import { Loader2, ArrowRight, Brain, CheckCircle, XCircle, Siren, Home, Map, Zap, Layers, AlertTriangle, Scale, X, Activity, RefreshCcw, BookOpen, GraduationCap, Sparkles, RotateCcw, Cpu } from 'lucide-react';
 
 interface GrammarModeProps {
   onBack: () => void;
@@ -185,6 +185,12 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
     setPuzzleFeedback(null);
   };
 
+  const handleResetPuzzle = () => {
+    setAvailableBlocks(prev => [...prev, ...placedBlocks]);
+    setPlacedBlocks([]);
+    setPuzzleFeedback(null);
+  };
+
   const checkPuzzle = () => {
     if (!data) return;
     const currentPuzzle = data.puzzles[puzzleIdx];
@@ -246,10 +252,10 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
                <Home size={24}/>
              </button>
              <div className="text-center">
-               <h2 className="text-3xl font-black text-slate-800 flex items-center gap-2 justify-center">
-                 <Map className="text-indigo-600"/> 절대영문법 월드맵
+               <h2 className="text-3xl font-black text-slate-800 flex items-center gap-2 justify-center font-brand">
+                 WONSUMMER <span className="text-indigo-600">GRAMMAR</span>
                </h2>
-               <p className="text-slate-500 font-medium">탐험하고 싶은 문법 구역(Zone)을 선택하세요.</p>
+               <p className="text-slate-500 font-medium">Concept Installation & Pattern Optimization</p>
              </div>
              <div className="w-12"></div> {/* Spacer */}
           </header>
@@ -468,7 +474,7 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
         </div>
 
         {/* Drop Zone */}
-        <div className="w-full max-w-4xl min-h-[140px] bg-white rounded-3xl shadow-inner border-4 border-slate-300 p-6 flex flex-wrap gap-3 items-center justify-center mb-6 transition-colors hover:border-slate-400">
+        <div className="w-full max-w-4xl min-h-[140px] bg-white rounded-3xl shadow-inner border-4 border-slate-300 p-6 flex flex-wrap gap-3 items-center justify-center mb-6 transition-colors hover:border-slate-400 relative">
            {placedBlocks.length === 0 && (
              <div className="text-slate-300 font-bold flex flex-col items-center gap-2">
                <ArrowRight className="rotate-90" size={32}/>
@@ -480,6 +486,16 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, 
                {block}
              </button>
            ))}
+
+           {placedBlocks.length > 0 && (
+             <button 
+                onClick={handleResetPuzzle}
+                className="absolute top-2 right-2 p-2 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-full transition-colors"
+                title="초기화"
+             >
+                <RotateCcw size={16} />
+             </button>
+           )}
         </div>
 
         {/* Feedback Zone */}

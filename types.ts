@@ -112,9 +112,15 @@ export interface GrammarData {
   };
   quizzes: {
     question: string;
-    options: string[];
+    options: string[]; // Must be 5 items
     answer: string;
-    explanation: string;
+    distractor_hints: string[]; // Hints corresponding to each option (why it's wrong)
+    final_explanation: string; // Shown ONLY after correct answer
   }[];
-  puzzles: GrammarPuzzle[]; // Changed from single puzzle to array of 7
+  puzzles: GrammarPuzzle[]; 
+  study_guide: {
+    weakness_analysis: string; // What implies weakness in this topic
+    review_recommendation: string; // Specific review action
+    next_step: string; // Topic to study next if mastered
+  };
 }

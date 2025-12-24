@@ -62,11 +62,20 @@ const GRAMMAR_SCHEMA = {
         type: Type.OBJECT,
         properties: {
           question: { type: Type.STRING },
-          options: { type: Type.ARRAY, items: { type: Type.STRING } },
+          options: { 
+            type: Type.ARRAY, 
+            items: { type: Type.STRING },
+            description: "Must contain exactly 5 options"
+          },
           answer: { type: Type.STRING },
-          explanation: { type: Type.STRING },
+          distractor_hints: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "A specific, conceptual hint for each option. Explain WHY this specific option is wrong without revealing the answer."
+          },
+          final_explanation: { type: Type.STRING, description: "Full explanation shown ONLY after correct answer." },
         },
-        required: ["question", "options", "answer", "explanation"]
+        required: ["question", "options", "answer", "distractor_hints", "final_explanation"]
       }
     },
     puzzles: {
@@ -83,9 +92,18 @@ const GRAMMAR_SCHEMA = {
         },
         required: ["sentence_translation", "chunks", "correct_order"]
       }
+    },
+    study_guide: {
+        type: Type.OBJECT,
+        properties: {
+            weakness_analysis: { type: Type.STRING, description: "What basic concept is missing if the student fails this?" },
+            review_recommendation: { type: Type.STRING, description: "Specific action item to review." },
+            next_step: { type: Type.STRING, description: "What advanced topic comes next?" }
+        },
+        required: ["weakness_analysis", "review_recommendation", "next_step"]
     }
   },
-  required: ["concept", "quizzes", "puzzles"]
+  required: ["concept", "quizzes", "puzzles", "study_guide"]
 };
 
 export const parseTextToGameData = async (text: string): Promise<SentenceData[]> => {
@@ -300,35 +318,29 @@ export const generateGrammarData = async (topic: string, level: GrammarLevel): P
     - 'key_distinction': Explicitly state how to tell them apart (e.g., "Complete vs Incomplete sentence").
     - 'exam_tip': A specific trick or trap to watch out for in exams.
 
-    Task 2: **Quizzes (Discrimination Training)**
+    Task 2: **Quizzes (5-Option Multiple Choice)**
     - Create 3 distinct multiple-choice questions.
+    - **MUST have 5 options (Korean Exam Standard).**
     - Options MUST include the 'confusing concept' as a distractor. 
-    - Do NOT just ask definitions. Ask for judgement in context.
-    - Example: If topic is 'Gerund', options should include 'Present Participle' or 'Infinitive'.
-    - Explanation must explain WHY the distractor is wrong.
+    - **Socratic Hints**: For 'distractor_hints', provide a specific, conceptual hint for each wrong option. Explain WHY that specific option is wrong (e.g., "This requires a complete sentence, but the clause is incomplete."). Do NOT just say "Wrong".
+    - 'final_explanation': A comprehensive explanation of the correct answer, shown only after success.
 
     Task 3: **Puzzles (Syntax Logic & Pattern Drills)**
     - Create EXACTLY 7 DIFFERENT English sentences related to the topic.
     - For each sentence, provide scrambled chunks.
     - If level == 'advanced', provide a 'distractor' word that is grammatically plausible but incorrect in this specific context (e.g., 'who' vs 'which').
 
+    Task 4: **Study Guide**
+    - weakness_analysis: If the student fails, what basic concept are they missing?
+    - review_recommendation: What specifically should they review?
+    - next_step: If they succeed, what topic should they study next?
+
     Output JSON schema:
     {
-      "concept": { 
-        "title": string, 
-        "summary": string[], 
-        "key_distinction": string, 
-        "exam_tip": string, 
-        "example": string 
-      },
-      "quizzes": [{ "question": string, "options": string[], "answer": string, "explanation": string }],
-      "puzzles": [{ 
-         "id": string, 
-         "sentence_translation": string, 
-         "chunks": string[], 
-         "correct_order": string[], 
-         "distractor": string | null 
-      }]
+      "concept": { ... },
+      "quizzes": [{ "question": string, "options": string[], "answer": string, "distractor_hints": string[], "final_explanation": string }],
+      "puzzles": [{ ... }],
+      "study_guide": { "weakness_analysis": string, "review_recommendation": string, "next_step": string }
     }
   `;
 

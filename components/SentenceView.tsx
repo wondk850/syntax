@@ -30,6 +30,9 @@ export const SentenceView: React.FC<SentenceViewProps> = ({
   return (
     <div className="w-full relative p-6 md:p-10 bg-white rounded-3xl shadow-xl border-2 border-slate-200 flex flex-wrap items-center content-center justify-center gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-8 select-none transition-all min-h-[300px]">
       
+      {/* S-V Connector SVG Line (Only valid if we have visual separation, simplified to CSS line for robustness in flex layout, but we can do an overlay) */}
+      {/* For this version, we will use robust CSS highlighting and token styling instead of complex coordinate calculation for SVG to avoid misalignment on resize. */}
+
       {data.tokens.map((token, index) => {
         const isHeadNoun = index === data.headNounIndex;
         const isMainVerb = index === data.mainVerbIndex;
@@ -69,14 +72,23 @@ export const SentenceView: React.FC<SentenceViewProps> = ({
            } else if (isCleaned) {
              tokenClasses += "text-slate-200 opacity-20 bg-transparent blur-[1px]"; // Fade out trash
            } else {
-             tokenClasses += "text-slate-400"; // Fade context
+             tokenClasses += "text-slate-400 opacity-50"; // Fade context
+           }
+        } else if (step === GameStep.FIND_VERB) {
+            // Find Verb State
+           if (isHeadNoun) {
+             tokenClasses += "text-blue-700 font-black bg-blue-50 ring-2 ring-blue-300 shadow-md animate-pulse"; // Subject pulses waiting for partner
+           } else if (isCleaned) {
+             tokenClasses += "text-slate-200 opacity-30 bg-transparent blur-[1px]"; // Trash faded
+           } else {
+             tokenClasses += "hover:bg-red-50 hover:text-red-600 hover:ring-2 hover:ring-red-200 cursor-pointer text-slate-800 hover:scale-105"; // Interactive for verb finding
            }
         } else {
            // Normal Gameplay Styles
            if (isCleaned) {
              tokenClasses += "text-slate-200 opacity-40 bg-transparent blur-[1px]"; 
            } else if (isHeadNounFound && isHeadNoun) {
-             tokenClasses += "text-blue-700 font-bold bg-blue-100 ring-4 ring-blue-200 shadow-sm transform scale-105";
+             tokenClasses += "text-blue-700 font-bold bg-blue-50 ring-2 ring-blue-200 shadow-sm";
            } else if (isSelected) {
              tokenClasses += "bg-yellow-300 text-slate-900 ring-4 ring-yellow-400 shadow-md transform -translate-y-1";
            } else if (isTutorialTarget || isTutorialRange) {
@@ -91,22 +103,26 @@ export const SentenceView: React.FC<SentenceViewProps> = ({
         const showPopup = showQuestionPopup && isHeadNoun;
 
         return (
-          <div key={index} className={containerClasses} onClick={() => !isCleaned && step !== GameStep.RESULT && onTokenClick(index)}>
+          <div key={index} className={containerClasses} onClick={() => step !== GameStep.RESULT && onTokenClick(index)}>
             <span className={tokenClasses}>{token}</span>
             
             {/* Badges for Result Step */}
             {step === GameStep.RESULT && isHeadNoun && (
                <>
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 shadow-sm whitespace-nowrap">Subject</div>
-                {/* S-V Link Line Suggestion (CSS only) */}
-                <div className="absolute top-1/2 left-full w-8 h-1 bg-gradient-to-r from-blue-300 to-transparent -z-10 opacity-50 hidden md:block"></div>
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 shadow-sm whitespace-nowrap animate-bounce">Subject</div>
                </>
             )}
             {step === GameStep.RESULT && isMainVerb && (
                <>
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-200 shadow-sm whitespace-nowrap">Verb</div>
-                <div className="absolute top-1/2 right-full w-8 h-1 bg-gradient-to-l from-red-300 to-transparent -z-10 opacity-50 hidden md:block"></div>
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-xs font-black text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-200 shadow-sm whitespace-nowrap animate-bounce">Verb</div>
                </>
+            )}
+            
+            {/* Find Verb Hint */}
+            {step === GameStep.FIND_VERB && isHeadNoun && (
+                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs font-bold text-blue-400">
+                    짝(Verb)을 찾으세요!
+                </div>
             )}
 
             {/* Tutorial Hand Icon */}
@@ -128,6 +144,11 @@ export const SentenceView: React.FC<SentenceViewProps> = ({
           </div>
         );
       })}
+      
+      {/* S-V Connector Line (Visual Flair for Result) */}
+      {step === GameStep.RESULT && (
+         <div className="absolute inset-x-0 bottom-4 h-2 bg-gradient-to-r from-blue-300 via-purple-300 to-red-300 opacity-30 rounded-full blur-xl animate-pulse pointer-events-none" />
+      )}
     </div>
   );
 };

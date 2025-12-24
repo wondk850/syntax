@@ -4,7 +4,7 @@ export enum GameStep {
   QUESTION = 2,       // 2단계: "어떤?" 질문 (Auto)
   MODIFIER_RANGE = 3, // 3-A단계: 수식어 범위 지정 (Start -> End)
   MODIFIER_TYPE = 4,  // 3-B단계: 수식어 코드 입력
-  // SCALE_CHECK Removed
+  FIND_VERB = 5,      // 4단계(New): 진짜 동사 찾기 (S-V 연결)
   RESULT = 6,         // 결과 화면 (개별 문제) - S-V 연결 확인
   DIAGNOSIS = 7,      // 10문제 종료 후 진단 리포트
 }
@@ -60,7 +60,7 @@ export interface UserProgress {
   history: { 
     sentenceId: string; 
     correct: boolean; 
-    mistakeType?: 'range' | 'code';
+    mistakeType?: 'range' | 'code' | 'noun' | 'verb';
     modifierCode?: number;
     timestamp: number 
   }[];
@@ -74,7 +74,8 @@ export enum TutorialStep {
   QUESTION_POPUP = 2,
   SELECT_RANGE = 3,
   SELECT_CODE = 4,
-  COMPLETE = 6, // Scale Check Removed
+  FIND_VERB = 5,
+  COMPLETE = 6,
   OFF = -1
 }
 

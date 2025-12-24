@@ -42,7 +42,7 @@ async function decodeAudioData(
   return buffer;
 }
 
-const playSound = (type: 'pop' | 'success' | 'error' | 'click' | 'sweep') => {
+const playSound = (type: 'pop' | 'success' | 'error' | 'click' | 'sweep' | 'connect') => {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const osc = ctx.createOscillator();
@@ -67,6 +67,14 @@ const playSound = (type: 'pop' | 'success' | 'error' | 'click' | 'sweep') => {
       osc.type = 'triangle'; osc.frequency.setValueAtTime(200, now); osc.frequency.linearRampToValueAtTime(800, now + 0.5);
       gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
       osc.start(now); osc.stop(now + 0.5);
+    } else if (type === 'connect') {
+      // Magical sound for connection
+      osc.type = 'sine'; 
+      osc.frequency.setValueAtTime(400, now); 
+      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.4);
+      gain.gain.setValueAtTime(0.1, now); 
+      gain.gain.linearRampToValueAtTime(0, now + 0.6);
+      osc.start(now); osc.stop(now + 0.6);
     }
   } catch (e) {}
 };
@@ -290,14 +298,14 @@ const App: React.FC = () => {
     });
   };
 
-  const recordHistory = (correct: boolean, type: 'range' | 'code' | 'noun', code?: number) => {
+  const recordHistory = (correct: boolean, type: 'range' | 'code' | 'noun' | 'verb', code?: number) => {
     if (!currentSentence) return;
     setUserProgress(prev => ({
       ...prev,
       history: [...prev.history, {
         sentenceId: currentSentence.id,
         correct,
-        mistakeType: correct ? undefined : (type === 'noun' ? undefined : type),
+        mistakeType: correct ? undefined : type,
         modifierCode: code,
         timestamp: Date.now()
       }]
@@ -309,11 +317,13 @@ const App: React.FC = () => {
   const handleTokenClick = (index: number) => {
     if (!currentSentence) return;
 
+    // Tutorial Lock
+    if (tutorialStep === TutorialStep.FIND_NOUN && index !== currentSentence.headNounIndex) return;
     if (tutorialStep === TutorialStep.FIND_NOUN && index === currentSentence.headNounIndex) {
       setTutorialStep(TutorialStep.QUESTION_POPUP);
-    } else if (tutorialStep === TutorialStep.FIND_NOUN) {
-       return; 
     }
+    if (tutorialStep === TutorialStep.FIND_VERB && index !== currentSentence.mainVerbIndex) return;
+
 
     if (step === GameStep.HEAD_NOUN) {
       if (index === currentSentence.headNounIndex) {
@@ -355,6 +365,38 @@ const App: React.FC = () => {
           }, 400);
         }
       }
+    } else if (step === GameStep.FIND_VERB) {
+       // --- NEW LOGIC: FIND MAIN VERB ---
+       if (index === currentSentence.mainVerbIndex) {
+         feedback("완벽합니다! 주어-동사 연결 성공.", 'success');
+         playSound('connect');
+         recordHistory(true, 'verb');
+         
+         if (tutorialStep === TutorialStep.FIND_VERB) setTutorialStep(TutorialStep.COMPLETE);
+
+         setTimeout(() => {
+           setStep(GameStep.RESULT);
+           handleSuccessInLandfill();
+           setUserProgress(p => ({ 
+             ...p, 
+             exp: p.exp + 10 + (p.combo * 2), 
+             combo: p.combo + 1,
+           }));
+           setMessage("문장 청소 완료! 구문이 한눈에 보입니다.");
+         }, 800);
+       } else {
+          // Identify if clicked inside a cleaned modifier (common mistake)
+          const inModifier = currentSentence.modifiers.some(m => index >= m.startIndex && index <= m.endIndex);
+          if (inModifier) {
+            feedback("그건 수식어(쓰레기) 안에 있는 동사입니다!", 'error');
+          } else if (index === currentSentence.headNounIndex) {
+             feedback("그건 주어입니다. 동사를 찾으세요.", 'error');
+          } else {
+             feedback("진짜 동사가 아닙니다.", 'error');
+          }
+          setUserProgress(p => ({ ...p, combo: 0 }));
+          recordHistory(false, 'verb');
+       }
     }
   };
 
@@ -391,18 +433,11 @@ const App: React.FC = () => {
           setMessage("다음 수식어를 찾아주세요.");
         }, 800);
       } else {
-        // ALL CLEANED - AUTO FINISH
-        if (tutorialStep === TutorialStep.SELECT_CODE) setTutorialStep(TutorialStep.COMPLETE);
+        // ALL MODIFIERS CLEANED -> GO TO FIND_VERB
         setTimeout(() => {
-          // Trigger Result / S-V Connection
-          setStep(GameStep.RESULT);
-          handleSuccessInLandfill();
-          setUserProgress(p => ({ 
-            ...p, 
-            exp: p.exp + 10 + (p.combo * 2), 
-            combo: p.combo + 1,
-          }));
-          setMessage("완벽합니다! 주어와 동사가 연결되었습니다.");
+          setStep(GameStep.FIND_VERB);
+          setMessage("마지막 단계: 주어와 짝이 되는 [진짜 동사]를 찾으세요!");
+          if (tutorialStep === TutorialStep.SELECT_CODE) setTutorialStep(TutorialStep.FIND_VERB);
         }, 500);
       }
     } else {
@@ -722,7 +757,7 @@ const App: React.FC = () => {
                    selectionEnd={selectionEnd}
                    onTokenClick={handleTokenClick}
                    showQuestionPopup={showQuestionPopup}
-                   tutorialHighlightIndex={tutorialStep === TutorialStep.FIND_NOUN ? currentSentence.headNounIndex : null}
+                   tutorialHighlightIndex={tutorialStep === TutorialStep.FIND_NOUN ? currentSentence.headNounIndex : (tutorialStep === TutorialStep.FIND_VERB ? currentSentence.mainVerbIndex : null)}
                    tutorialHighlightRange={tutorialStep === TutorialStep.SELECT_RANGE && activeModifier ? { start: activeModifier.startIndex, end: activeModifier.endIndex } : null}
                  />
                </div>

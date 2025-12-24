@@ -18,6 +18,7 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ step, onNext, 
       case TutorialStep.QUESTION_POPUP: return "잘했어요! 명사를 찾으면 '어떤?'이라는 질문이 떠오릅니다.";
       case TutorialStep.SELECT_RANGE: return "이제 명사를 꾸며주는 [수식어]의 범위를 선택해보세요.";
       case TutorialStep.SELECT_CODE: return "이 수식어의 종류는 무엇일까요? 코드를 선택하세요.";
+      case TutorialStep.FIND_VERB: return "마지막 단계! 수식어가 사라졌으니, 주어와 짝이 되는 [동사]를 찾아보세요.";
       default: return "";
     }
   };
@@ -36,7 +37,7 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ step, onNext, 
             </div>
             <div className="flex-1">
                <h3 className="text-lg font-black text-slate-800 mb-1">
-                 Tutorial {step}/5
+                 Tutorial {step}/6
                </h3>
                <p className="text-slate-600 text-lg font-medium leading-relaxed">
                  {getMessage()}

@@ -4,6 +4,104 @@ import { MODIFIER_TYPES } from "../constants";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// Shared schema definition for consistent parsing
+const SENTENCE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    sentences: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          tokens: { type: Type.ARRAY, items: { type: Type.STRING } },
+          headNounIndex: { type: Type.INTEGER },
+          mainVerbIndex: { type: Type.INTEGER },
+          distractorIndices: { 
+            type: Type.ARRAY, 
+            items: { type: Type.INTEGER },
+            description: "Indices of words that look like verbs but are not (e.g., participles, verbs inside modifiers)" 
+          },
+          modifiers: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                startIndex: { type: Type.INTEGER },
+                endIndex: { type: Type.INTEGER },
+                typeCode: { type: Type.INTEGER },
+              },
+              required: ["startIndex", "endIndex", "typeCode"]
+            }
+          },
+          subjectType: { type: Type.INTEGER },
+          translation: { type: Type.STRING },
+        },
+        required: ["tokens", "headNounIndex", "mainVerbIndex", "modifiers", "translation", "subjectType"]
+      }
+    }
+  }
+};
+
+export const parseTextToGameData = async (text: string): Promise<SentenceData[]> => {
+  const modifierList = MODIFIER_TYPES.map(m => `${m.code}:${m.fullName}`).join(", ");
+  
+  const prompt = `
+    Analyze the following English text and convert it into a structured JSON for a grammar game.
+    Input Text: "${text}"
+
+    Task:
+    1. Split the text into individual sentences.
+    2. For EACH sentence:
+       - Tokenize it (words/punctuation).
+       - Identify the MAIN Subject Head Noun (0-based index).
+       - Identify the MAIN Verb (0-based index).
+       - Identify 'distractorIndices': indices of words that act as "Fake Verbs" (e.g., participles like 'made', 'playing' inside modifiers, or verbs inside relative clauses). These are TRAPS for students.
+       - Identify ALL post-modifiers modifying the head noun.
+       - Assign Modifier Type Code (1-17) from: [${modifierList}].
+       - Provide Korean translation.
+       - Assign Subject Type (1-12).
+
+    Constraints:
+    - Return valid JSON.
+    - Be precise with indices.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview', // Use Pro for higher accuracy in parsing user text
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: SENTENCE_SCHEMA
+      }
+    });
+
+    if (response.text) {
+      const parsed = JSON.parse(response.text);
+      return parsed.sentences.map((s: any, idx: number) => ({
+        id: `custom-${Date.now()}-${idx}`,
+        tokens: s.tokens,
+        headNounIndex: s.headNounIndex,
+        mainVerbIndex: s.mainVerbIndex,
+        distractorIndices: s.distractorIndices || [],
+        modifiers: s.modifiers.map((m: any, mIdx: number) => ({
+          id: `mod-${idx}-${mIdx}`,
+          startIndex: m.startIndex,
+          endIndex: m.endIndex,
+          typeCode: m.typeCode
+        })),
+        subjectType: s.subjectType || 1,
+        translation: s.translation,
+        difficulty: 'intermediate' // Default for custom text
+      }));
+    }
+    return [];
+  } catch (e) {
+    console.error("Custom Parsing Failed", e);
+    throw new Error("AI가 문장을 분석하지 못했습니다. 문장이 정확한지 확인해주세요.");
+  }
+};
+
 export const generateSessionSentences = async (
   difficulty: Difficulty, 
   count: number = 10,
@@ -17,24 +115,22 @@ export const generateSessionSentences = async (
     Level: ${difficulty.toUpperCase()}.
     
     Task:
-    1. Provide the English sentence split into tokens (words/punctuation).
-    2. Identify the MAIN Subject Head Noun index (0-based).
-    3. Identify the MAIN Verb index (0-based) that corresponds to the head noun.
-    4. Identify ALL post-modifiers (adjective phrases, relative clauses, etc.) modifying that head noun.
-    5. Provide the Modifier Type Code (1-17) based on this list: [${modifierList}].
-    6. Provide a Korean translation.
-    7. Identify Subject Type (1-12) generally.
+    1. Provide the English sentence split into tokens.
+    2. Identify MAIN Head Noun and MAIN Verb indices.
+    3. Identify 'distractorIndices': indices of "Fake Verbs" (participles, verbs in sub-clauses) to test students.
+    4. Identify modifiers and their type codes (1-17): [${modifierList}].
+    5. Provide Korean translation.
 
     Constraints:
-    - Return a JSON object with a "sentences" array.
-    - Ensure indices are accurate for the 'tokens' array.
-    - Beginner: 1 modifier max, simple vocabulary.
-    - Intermediate: 1-2 modifiers, relative clauses.
-    - Advanced: Complex structure, nested modifiers possible.
+    - JSON Output.
+    - Accurate indices.
+    - Beginner: 1 modifier.
+    - Intermediate: 1-2 modifiers.
+    - Advanced: Complex structure.
   `;
 
   if (focusWeaknessCode) {
-    prompt += `\nIMPORTANT: The user is weak at Modifier Code ${focusWeaknessCode}. Please include at least 5 sentences containing this specific modifier type to help them practice.`;
+    prompt += `\nIMPORTANT: The user is weak at Modifier Code ${focusWeaknessCode}. Include at least 5 sentences with this modifier.`;
   }
 
   try {
@@ -43,37 +139,7 @@ export const generateSessionSentences = async (
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            sentences: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  tokens: { type: Type.ARRAY, items: { type: Type.STRING } },
-                  headNounIndex: { type: Type.INTEGER },
-                  mainVerbIndex: { type: Type.INTEGER },
-                  modifiers: {
-                    type: Type.ARRAY,
-                    items: {
-                      type: Type.OBJECT,
-                      properties: {
-                        startIndex: { type: Type.INTEGER },
-                        endIndex: { type: Type.INTEGER },
-                        typeCode: { type: Type.INTEGER },
-                      },
-                      required: ["startIndex", "endIndex", "typeCode"]
-                    }
-                  },
-                  subjectType: { type: Type.INTEGER },
-                  translation: { type: Type.STRING },
-                },
-                required: ["tokens", "headNounIndex", "mainVerbIndex", "modifiers", "translation", "subjectType"]
-              }
-            }
-          }
-        }
+        responseSchema: SENTENCE_SCHEMA
       }
     });
 
@@ -85,6 +151,7 @@ export const generateSessionSentences = async (
         tokens: s.tokens,
         headNounIndex: s.headNounIndex,
         mainVerbIndex: s.mainVerbIndex,
+        distractorIndices: s.distractorIndices || [],
         modifiers: s.modifiers.map((m: any, mIdx: number) => ({
           id: `mod-${idx}-${mIdx}`,
           startIndex: m.startIndex,
@@ -109,7 +176,9 @@ export const analyzeDiagnosis = (history: any[], currentSessionIds: string[]): s
    
    const rangeErrors = sessionMistakes.filter(h => h.mistakeType === 'range').length;
    const codeErrors = sessionMistakes.filter(h => h.mistakeType === 'code').length;
+   const trapErrors = sessionMistakes.filter(h => h.mistakeType === 'trap').length;
 
+   if (trapErrors > 0) return "진짜 동사와 '가짜 동사(준동사)'를 구별하는 연습이 필요합니다. 함정에 주의하세요!";
    if (rangeErrors > codeErrors) return "수식어의 범위(어디서부터 어디까지인지)를 찾는 연습이 더 필요해 보입니다.";
    return "수식어의 종류(코드 번호)를 헷갈려하고 있습니다. 힌트 기능을 적극 활용해보세요.";
 };

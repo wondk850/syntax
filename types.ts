@@ -23,6 +23,7 @@ export interface SentenceData {
   tokens: string[];
   headNounIndex: number;
   mainVerbIndex: number; // New: Verb Index for S-V Connection
+  distractorIndices?: number[]; // New: Indices of "Trap" words (fake verbs like participles)
   modifiers: Modifier[]; // Ordered left-to-right
   subjectType: number; // Linked to SubjectType ID
   translation: string;
@@ -60,7 +61,7 @@ export interface UserProgress {
   history: { 
     sentenceId: string; 
     correct: boolean; 
-    mistakeType?: 'range' | 'code' | 'noun' | 'verb';
+    mistakeType?: 'range' | 'code' | 'noun' | 'verb' | 'trap';
     modifierCode?: number;
     timestamp: number 
   }[];

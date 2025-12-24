@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameStep, SentenceData, UserProgress, Difficulty, TutorialStep, LandfillItem, DiagnosisStats } from './types';
 import { MOCK_SENTENCES, MODIFIER_TYPES } from './constants';
-import { generateSessionSentences, analyzeDiagnosis, generateSpeech, generateSocraticHint } from './services/ai';
+import { generateSessionSentences, analyzeDiagnosis, generateSpeech, generateSocraticHint, parseTextToGameData } from './services/ai';
 import { SentenceView } from './components/SentenceView';
 import { ChatBot } from './components/ChatBot';
 import { DiagnosisView } from './components/DiagnosisView';
 import { TutorialOverlay } from './components/TutorialOverlay';
 import { ToolsPanel } from './components/ToolsPanel';
-import { Trophy, Zap, ChevronRight, RotateCcw, Layout, ArrowRight, BookOpen, AlertCircle, Loader2, TrendingUp, CheckCircle, Link, Volume2 } from 'lucide-react';
+import { CustomInputModal } from './components/CustomInputModal';
+import { Trophy, Zap, ChevronRight, RotateCcw, Layout, ArrowRight, BookOpen, AlertCircle, Loader2, TrendingUp, CheckCircle, Link, Volume2, ClipboardPaste } from 'lucide-react';
 
 // --- Audio Helper Functions ---
 function decode(base64: string) {
@@ -42,7 +43,7 @@ async function decodeAudioData(
   return buffer;
 }
 
-const playSound = (type: 'pop' | 'success' | 'error' | 'click' | 'sweep' | 'connect') => {
+const playSound = (type: 'pop' | 'success' | 'error' | 'click' | 'sweep' | 'connect' | 'trap') => {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const osc = ctx.createOscillator();
@@ -68,13 +69,21 @@ const playSound = (type: 'pop' | 'success' | 'error' | 'click' | 'sweep' | 'conn
       gain.gain.setValueAtTime(0.05, now); gain.gain.linearRampToValueAtTime(0, now + 0.5);
       osc.start(now); osc.stop(now + 0.5);
     } else if (type === 'connect') {
-      // Magical sound for connection
-      osc.type = 'sine'; 
-      osc.frequency.setValueAtTime(400, now); 
-      osc.frequency.exponentialRampToValueAtTime(1200, now + 0.4);
-      gain.gain.setValueAtTime(0.1, now); 
-      gain.gain.linearRampToValueAtTime(0, now + 0.6);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(400, now); osc.frequency.exponentialRampToValueAtTime(1200, now + 0.4);
+      gain.gain.setValueAtTime(0.1, now); gain.gain.linearRampToValueAtTime(0, now + 0.6);
       osc.start(now); osc.stop(now + 0.6);
+    } else if (type === 'trap') {
+      // Urgent, abrupt sound
+      osc.type = 'square'; osc.frequency.setValueAtTime(150, now); osc.frequency.linearRampToValueAtTime(100, now + 0.1);
+      gain.gain.setValueAtTime(0.2, now); gain.gain.linearRampToValueAtTime(0, now + 0.1);
+      osc.start(now); osc.stop(now + 0.1);
+      
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc2.type = 'sawtooth'; osc2.frequency.setValueAtTime(100, now + 0.1);
+      gain2.gain.setValueAtTime(0.2, now + 0.1); gain2.gain.linearRampToValueAtTime(0, now + 0.3);
+      osc2.start(now + 0.1); osc2.stop(now + 0.3);
     }
   } catch (e) {}
 };
@@ -89,6 +98,10 @@ const App: React.FC = () => {
   const [sessionSentences, setSessionSentences] = useState<SentenceData[]>([]); // Current 10
   const [isAiLoading, setIsAiLoading] = useState(false);
   
+  // Custom Parser State
+  const [isCustomInputOpen, setIsCustomInputOpen] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+
   // --- Progress State ---
   const [userProgress, setUserProgress] = useState<UserProgress>({
     exp: 0,
@@ -239,6 +252,28 @@ const App: React.FC = () => {
     resetSentenceState();
   };
 
+  const handleCustomTextSubmit = async (text: string) => {
+    setIsParsing(true);
+    try {
+      const sentences = await parseTextToGameData(text);
+      if (sentences.length > 0) {
+        setCurrentLevel('intermediate'); // Default for custom
+        setSessionSentences(sentences);
+        setSentenceQueue(sentences);
+        setCurrentSentenceIdx(0);
+        setIsPlaying(true);
+        setIsCustomInputOpen(false);
+        resetSentenceState();
+      } else {
+        alert("문장 분석에 실패했습니다. 올바른 영어 문장인지 확인해주세요.");
+      }
+    } catch (e) {
+      alert("AI 연결 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
   const resetSentenceState = () => {
     setStep(GameStep.HEAD_NOUN);
     setCurrentModIndex(0);
@@ -298,7 +333,7 @@ const App: React.FC = () => {
     });
   };
 
-  const recordHistory = (correct: boolean, type: 'range' | 'code' | 'noun' | 'verb', code?: number) => {
+  const recordHistory = (correct: boolean, type: 'range' | 'code' | 'noun' | 'verb' | 'trap', code?: number) => {
     if (!currentSentence) return;
     setUserProgress(prev => ({
       ...prev,
@@ -322,7 +357,10 @@ const App: React.FC = () => {
     if (tutorialStep === TutorialStep.FIND_NOUN && index === currentSentence.headNounIndex) {
       setTutorialStep(TutorialStep.QUESTION_POPUP);
     }
-    if (tutorialStep === TutorialStep.FIND_VERB && index !== currentSentence.mainVerbIndex) return;
+    if (tutorialStep === TutorialStep.FIND_VERB && index !== currentSentence.mainVerbIndex) {
+       // Allow traps in tutorial? Maybe better to block strictly in tutorial.
+       // Let's allow interaction to teach negative feedback if not strictly step blocked.
+    }
 
 
     if (step === GameStep.HEAD_NOUN) {
@@ -366,7 +404,7 @@ const App: React.FC = () => {
         }
       }
     } else if (step === GameStep.FIND_VERB) {
-       // --- NEW LOGIC: FIND MAIN VERB ---
+       // --- NEW LOGIC: FIND MAIN VERB & TRAPS ---
        if (index === currentSentence.mainVerbIndex) {
          feedback("완벽합니다! 주어-동사 연결 성공.", 'success');
          playSound('connect');
@@ -385,17 +423,24 @@ const App: React.FC = () => {
            setMessage("문장 청소 완료! 구문이 한눈에 보입니다.");
          }, 800);
        } else {
-          // Identify if clicked inside a cleaned modifier (common mistake)
-          const inModifier = currentSentence.modifiers.some(m => index >= m.startIndex && index <= m.endIndex);
-          if (inModifier) {
-            feedback("그건 수식어(쓰레기) 안에 있는 동사입니다!", 'error');
-          } else if (index === currentSentence.headNounIndex) {
-             feedback("그건 주어입니다. 동사를 찾으세요.", 'error');
+          // Identify TRAPS (Distractors)
+          if (currentSentence.distractorIndices?.includes(index)) {
+             feedback("🚨 함정 카드 발동! 그건 동사가 아니라 '준동사'입니다!", 'error');
+             playSound('trap');
+             recordHistory(false, 'trap');
           } else {
-             feedback("진짜 동사가 아닙니다.", 'error');
+             // Identify if clicked inside a cleaned modifier (common mistake)
+             const inModifier = currentSentence.modifiers.some(m => index >= m.startIndex && index <= m.endIndex);
+             if (inModifier) {
+               feedback("그건 수식어(쓰레기) 안에 있는 동사입니다!", 'error');
+             } else if (index === currentSentence.headNounIndex) {
+                feedback("그건 주어입니다. 동사를 찾으세요.", 'error');
+             } else {
+                feedback("진짜 동사가 아닙니다.", 'error');
+             }
+             recordHistory(false, 'verb');
           }
           setUserProgress(p => ({ ...p, combo: 0 }));
-          recordHistory(false, 'verb');
        }
     }
   };
@@ -532,6 +577,14 @@ const App: React.FC = () => {
            }} />
         )}
         
+        {/* Custom Input Modal */}
+        <CustomInputModal 
+          isOpen={isCustomInputOpen}
+          onClose={() => setIsCustomInputOpen(false)}
+          onSubmit={handleCustomTextSubmit}
+          isLoading={isParsing}
+        />
+        
         <div className="max-w-4xl w-full">
            <header className="mb-12 text-center">
               <h1 className="text-4xl md:text-6xl font-black text-indigo-900 mb-4 tracking-tight">
@@ -539,6 +592,17 @@ const App: React.FC = () => {
               </h1>
               <p className="text-xl text-slate-500">문장의 구조를 꿰뚫는 4단계 절대영문법 트레이닝</p>
            </header>
+           
+           {/* Custom Input Button (Safe Feature) */}
+           <div className="mb-8 flex justify-center">
+              <button 
+                onClick={() => setIsCustomInputOpen(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-slate-200 rounded-full text-slate-700 font-bold hover:border-indigo-500 hover:text-indigo-600 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
+              >
+                 <ClipboardPaste size={18} />
+                 내 지문으로 학습하기 (Beta)
+              </button>
+           </div>
 
            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               {(['beginner', 'intermediate', 'advanced'] as Difficulty[]).map((level) => {

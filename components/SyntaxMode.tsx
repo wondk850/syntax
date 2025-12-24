@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { GameStep, SentenceData, UserProgress, Difficulty, TutorialStep, LandfillItem, DiagnosisStats } from '../types';
-import { MOCK_SENTENCES, MODIFIER_TYPES } from '../constants';
+import { MOCK_SENTENCES, MODIFIER_TYPES, CODE_TO_TOPIC } from '../constants';
 import { generateSessionSentences, analyzeDiagnosis, generateSpeech, generateSocraticHint, parseTextToGameData } from '../services/ai';
 import { SentenceView } from './SentenceView';
 import { ChatBot } from './ChatBot';
@@ -8,7 +8,7 @@ import { DiagnosisView } from './DiagnosisView';
 import { TutorialOverlay } from './TutorialOverlay';
 import { ToolsPanel } from './ToolsPanel';
 import { CustomInputModal } from './CustomInputModal';
-import { Trophy, Zap, RotateCcw, Layout, ArrowRight, BookOpen, AlertCircle, Loader2, TrendingUp, CheckCircle, Link, Volume2, ClipboardPaste, Home } from 'lucide-react';
+import { Trophy, Zap, RotateCcw, Layout, ArrowRight, BookOpen, AlertCircle, Loader2, TrendingUp, CheckCircle, Link, Volume2, ClipboardPaste, Home, Wrench, Activity, RefreshCcw } from 'lucide-react';
 
 // --- Audio Helper Functions (Duplicated here for safety/isolation) ---
 function decode(base64: string) {
@@ -86,9 +86,11 @@ const SESSION_LENGTH = 10;
 
 interface SyntaxModeProps {
   onBack: () => void;
+  initialFocusCode?: number | null;
+  onGoToGrammar: (code: number) => void;
 }
 
-export const SyntaxMode: React.FC<SyntaxModeProps> = ({ onBack }) => {
+export const SyntaxMode: React.FC<SyntaxModeProps> = ({ onBack, initialFocusCode, onGoToGrammar }) => {
   // --- Game Mode State ---
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentLevel, setCurrentLevel] = useState<Difficulty | 'landfill'>('beginner');
@@ -150,6 +152,14 @@ export const SyntaxMode: React.FC<SyntaxModeProps> = ({ onBack }) => {
       audioContextRef.current?.close();
     };
   }, []);
+
+  // --- Handle Initial Deep Link ---
+  useEffect(() => {
+    if (initialFocusCode) {
+      // Auto-start intermediate level focused on the code
+      startLevel('intermediate', initialFocusCode);
+    }
+  }, [initialFocusCode]);
 
   // --- TTS Handler ---
   const handlePlayTTS = async () => {
@@ -465,6 +475,71 @@ export const SyntaxMode: React.FC<SyntaxModeProps> = ({ onBack }) => {
     );
   }
 
+  // Render Logic - Modified Diagnosis View Props
+  const renderDiagnosis = () => (
+    diagnosisStats ? (
+       <div className="flex flex-col items-center justify-center w-full h-full animate-fade-in p-8 text-center">
+         <div className="bg-white rounded-3xl p-8 shadow-2xl border-2 border-indigo-100 max-w-2xl w-full">
+           <div className="flex items-center justify-center gap-3 mb-6">
+             <div className="p-3 bg-indigo-100 rounded-full text-indigo-600">
+               <Activity size={32} />
+             </div>
+             <h2 className="text-3xl font-black text-slate-800">AI 학습 진단 리포트</h2>
+           </div>
+           
+           {/* Weakness Section */}
+           {diagnosisStats.weakestModifierCode && (
+              <div className="bg-red-50 p-6 rounded-2xl border border-red-100 mb-6">
+                  <h3 className="text-lg font-bold text-red-800 mb-2 flex items-center justify-center gap-2">
+                    <AlertCircle size={20}/> 취약점 발견: Code {diagnosisStats.weakestModifierCode}
+                  </h3>
+                  <p className="text-sm text-red-600 mb-4">
+                    "{MODIFIER_TYPES.find(m => m.code === diagnosisStats.weakestModifierCode)?.name}" 유형에서 실수가 잦습니다.
+                  </p>
+                  <button 
+                    onClick={() => onGoToGrammar(diagnosisStats.weakestModifierCode!)}
+                    className="px-6 py-3 bg-red-500 text-white rounded-xl font-bold hover:bg-red-600 shadow-md flex items-center gap-2 mx-auto animate-pulse"
+                  >
+                    <Wrench size={18}/> 문법 수리공에서 개념 복구하기 (Go to Grammar)
+                  </button>
+              </div>
+           )}
+
+           <div className="grid grid-cols-2 gap-4 mb-8">
+             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+               <span className="text-sm text-slate-500 font-bold uppercase block mb-1">정답률 (Accuracy)</span>
+               <span className={`text-4xl font-black ${diagnosisStats.accuracy >= 80 ? 'text-green-500' : 'text-red-500'}`}>
+                 {Math.round(diagnosisStats.accuracy)}%
+               </span>
+             </div>
+             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+               <span className="text-sm text-slate-500 font-bold uppercase block mb-1">AI 소견</span>
+               <p className="text-sm font-medium text-slate-700 leading-tight">
+                 {diagnosisStats.feedback}
+               </p>
+             </div>
+           </div>
+
+           <div className="flex flex-col gap-3">
+             <button 
+               onClick={() => startLevel(currentLevel as Difficulty)}
+               className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+             >
+               <RefreshCcw size={20} />
+               다시 도전하기
+             </button>
+             <button 
+               onClick={() => setIsPlaying(false)}
+               className="w-full py-3 text-slate-400 font-bold hover:text-slate-600"
+             >
+               메인으로 나가기
+             </button>
+           </div>
+         </div>
+       </div>
+    ) : null
+  );
+
   if (!isPlaying) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
@@ -481,9 +556,15 @@ export const SyntaxMode: React.FC<SyntaxModeProps> = ({ onBack }) => {
               <h1 className="text-4xl md:text-6xl font-black text-indigo-900 mb-4 tracking-tight">
                 SYNTAX CLEANER <span className="text-indigo-500">PRO</span>
               </h1>
+              {initialFocusCode && (
+                  <div className="inline-block px-4 py-1 bg-amber-100 text-amber-800 rounded-full font-bold mb-4 animate-bounce">
+                    Target Code: {initialFocusCode} 집중 훈련 중
+                  </div>
+              )}
               <p className="text-xl text-slate-500">문장 구조 청소 및 동사 찾기 훈련</p>
            </header>
            
+           {/* Normal Menu */}
            <div className="mb-8 flex justify-center">
               <button onClick={() => setIsCustomInputOpen(true)} className="flex items-center gap-2 px-6 py-3 bg-white border-2 border-slate-200 rounded-full text-slate-700 font-bold hover:border-indigo-500 hover:text-indigo-600 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
                  <ClipboardPaste size={18} /> 내 지문으로 학습하기 (Beta)
@@ -551,8 +632,8 @@ export const SyntaxMode: React.FC<SyntaxModeProps> = ({ onBack }) => {
                   <p className="text-xl md:text-2xl text-slate-600 font-medium px-4 break-keep leading-relaxed bg-white/50 py-4 rounded-xl w-full">{currentSentence.translation}</p>
                   <button onClick={nextSentence} className="px-12 py-5 bg-indigo-600 text-white text-xl font-bold rounded-2xl shadow-xl hover:bg-indigo-700 hover:scale-105 transition-all flex items-center gap-3 animate-pulse ring-4 ring-indigo-200">{currentSentenceIdx < sessionSentences.length - 1 ? "다음 문장으로 이동" : "결과 리포트 보기"} <ArrowRight size={24} /></button>
                </div>
-             ) : step === GameStep.DIAGNOSIS && diagnosisStats ? (
-                <DiagnosisView stats={diagnosisStats} onContinue={() => startLevel(currentLevel as Difficulty)} onRetryWeakness={() => startLevel(currentLevel as Difficulty, diagnosisStats.weakestModifierCode)} onExit={() => setIsPlaying(false)} />
+             ) : step === GameStep.DIAGNOSIS ? (
+                renderDiagnosis()
              ) : currentSentence && (
                <div className="w-full max-w-5xl relative flex flex-col items-center">
                  <button onClick={handlePlayTTS} disabled={isTTSLoading || isAudioPlaying} className="absolute -top-14 right-4 md:right-0 bg-white p-3 rounded-full shadow-md border border-slate-200 text-indigo-600 hover:bg-indigo-50 hover:scale-110 transition-all disabled:opacity-50 disabled:scale-100 z-30" title="듣기">{isTTSLoading ? <Loader2 size={24} className="animate-spin" /> : isAudioPlaying ? <Volume2 size={24} className="animate-pulse" /> : <Volume2 size={24} />}</button>

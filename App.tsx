@@ -2,18 +2,59 @@ import React, { useState } from 'react';
 import { SyntaxMode } from './components/SyntaxMode';
 import { GrammarMode } from './components/GrammarMode';
 import { Sparkles, Wrench, GraduationCap, ArrowRight } from 'lucide-react';
+import { TOPIC_TO_CODE, CODE_TO_TOPIC } from './constants';
 
-type AppMode = 'LOBBY' | 'SYNTAX' | 'GRAMMAR';
+type AppView = 
+  | { mode: 'LOBBY' }
+  | { mode: 'SYNTAX'; initialFocusCode?: number | null }
+  | { mode: 'GRAMMAR'; initialTopic?: string | null };
 
 const App: React.FC = () => {
-  const [mode, setMode] = useState<AppMode>('LOBBY');
+  const [view, setView] = useState<AppView>({ mode: 'LOBBY' });
 
-  if (mode === 'SYNTAX') {
-    return <SyntaxMode onBack={() => setMode('LOBBY')} />;
+  // --- Navigation Handlers (The Bridge) ---
+  
+  // Syntax -> Grammar (Repair)
+  const handleNavigateToGrammar = (code: number) => {
+    const topicId = CODE_TO_TOPIC[code];
+    if (topicId) {
+      setView({ mode: 'GRAMMAR', initialTopic: topicId });
+    } else {
+      // Fallback if no specific topic exists
+      alert("해당 유형은 아직 전용 문법 강좌가 준비되지 않았습니다. (기초 강좌로 이동합니다)");
+      setView({ mode: 'GRAMMAR' });
+    }
+  };
+
+  // Grammar -> Syntax (Apply)
+  const handleNavigateToSyntax = (topicId: string) => {
+    // Try to find a representative code for this topic
+    const code = TOPIC_TO_CODE[topicId];
+    if (code) {
+      setView({ mode: 'SYNTAX', initialFocusCode: code });
+    } else {
+      setView({ mode: 'SYNTAX' });
+    }
+  };
+
+  if (view.mode === 'SYNTAX') {
+    return (
+      <SyntaxMode 
+        onBack={() => setView({ mode: 'LOBBY' })} 
+        initialFocusCode={view.initialFocusCode}
+        onGoToGrammar={handleNavigateToGrammar}
+      />
+    );
   }
 
-  if (mode === 'GRAMMAR') {
-    return <GrammarMode onBack={() => setMode('LOBBY')} />;
+  if (view.mode === 'GRAMMAR') {
+    return (
+      <GrammarMode 
+        onBack={() => setView({ mode: 'LOBBY' })} 
+        initialTopic={view.initialTopic}
+        onGoToSyntax={handleNavigateToSyntax}
+      />
+    );
   }
 
   return (
@@ -39,7 +80,7 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Card A: Syntax Mode */}
           <button 
-            onClick={() => setMode('SYNTAX')}
+            onClick={() => setView({ mode: 'SYNTAX' })}
             className="group relative bg-white rounded-[2rem] p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 border-transparent hover:border-indigo-500 text-left overflow-hidden"
           >
             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
@@ -62,7 +103,7 @@ const App: React.FC = () => {
 
           {/* Card B: Grammar Mode */}
           <button 
-            onClick={() => setMode('GRAMMAR')}
+            onClick={() => setView({ mode: 'GRAMMAR' })}
             className="group relative bg-white rounded-[2rem] p-8 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-2 border-transparent hover:border-purple-500 text-left overflow-hidden"
           >
             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">

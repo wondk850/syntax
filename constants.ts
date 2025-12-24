@@ -1,3 +1,4 @@
+
 import { ModifierTypeDefinition, SubjectTypeDefinition, SentenceData } from './types';
 
 // --- Critical Issue #3: Full 17 Modifier Types ---
@@ -103,3 +104,24 @@ export const MOCK_SENTENCES: SentenceData[] = [
     difficulty: 'advanced'
   }
 ];
+
+// --- BRIDGE MAPPING: Connects Syntax Codes (1-17) to Grammar Topics (IDs) ---
+export const CODE_TO_TOPIC: Record<number, string> = {
+  2: 'to_inf_adj',
+  3: 'to_inf_adj', // Merged for now
+  4: 'participle',
+  5: 'participle',
+  7: 'rel_pronoun',
+  8: 'rel_pronoun',
+  9: 'rel_pronoun',
+  10: 'rel_adverb',
+  12: 'conjunctions', // Close approximation
+};
+
+export const TOPIC_TO_CODE: Record<string, number> = {
+  'to_inf_adj': 2,
+  'participle': 4,
+  'rel_pronoun': 7,
+  'rel_adverb': 10,
+  'rel_what': 11,
+};

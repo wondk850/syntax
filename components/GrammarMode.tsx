@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { GrammarData, GrammarLevel } from '../types';
 import { generateGrammarData } from '../services/ai';
-import { Loader2, ArrowRight, Brain, CheckCircle, XCircle, Siren, Home, Map, Zap, Layers, AlertTriangle, Scale, X, Activity, RefreshCcw, BookOpen, GraduationCap } from 'lucide-react';
+import { Loader2, ArrowRight, Brain, CheckCircle, XCircle, Siren, Home, Map, Zap, Layers, AlertTriangle, Scale, X, Activity, RefreshCcw, BookOpen, GraduationCap, Sparkles } from 'lucide-react';
 
 interface GrammarModeProps {
   onBack: () => void;
+  initialTopic?: string | null;
+  onGoToSyntax: (topicId: string) => void;
 }
 
 type Phase = 'TOPIC_SELECT' | 'LOADING' | 'CONCEPT' | 'QUIZ' | 'PUZZLE' | 'DIAGNOSIS' | 'SUCCESS';
@@ -57,7 +59,7 @@ const GRAMMAR_ZONES = [
   }
 ];
 
-export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
+export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack, initialTopic, onGoToSyntax }) => {
   const [phase, setPhase] = useState<Phase>('TOPIC_SELECT');
   const [level, setLevel] = useState<GrammarLevel>('beginner');
   const [currentTopic, setCurrentTopic] = useState<string>('');
@@ -78,6 +80,21 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
 
   // Stats
   const [sessionStats, setSessionStats] = useState({ quizCorrect: 0, puzzleCorrect: 0 });
+
+  // Handle Initial Deep Link (Repair Mode)
+  useEffect(() => {
+    if (initialTopic) {
+      // Find the topic label from the ID
+      let foundLabel = "";
+      for (const zone of GRAMMAR_ZONES) {
+        const topic = zone.topics.find(t => t.id === initialTopic);
+        if (topic) foundLabel = topic.label;
+      }
+      if (foundLabel) {
+        loadTopic(foundLabel);
+      }
+    }
+  }, [initialTopic]);
 
   const loadTopic = async (topicLabel: string, isRetry = false) => {
     setCurrentTopic(topicLabel);
@@ -293,6 +310,11 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
         <Loader2 size={64} className="text-indigo-600 animate-spin mb-6"/>
         <h2 className="text-2xl font-black text-indigo-900 mb-2">AI가 '바람직한 어려움'을 생성 중입니다...</h2>
         <p className="text-slate-500 font-medium">5지선다 문제와 개념적 힌트를 준비하고 있습니다.</p>
+        {initialTopic && (
+            <p className="text-sm font-bold text-indigo-400 mt-2 bg-indigo-100 px-3 py-1 rounded-full inline-block animate-bounce">
+                Repair Mode: 집중 클리닉 가동
+            </p>
+        )}
       </div>
     );
   }
@@ -531,11 +553,14 @@ export const GrammarMode: React.FC<GrammarModeProps> = ({ onBack }) => {
              <div className="space-y-3 text-sm font-medium leading-relaxed opacity-90">
                 {isMastered ? (
                     <div>
-                        <p className="mb-2">완벽하게 이해했습니다. 다음 단계로 넘어가도 좋습니다.</p>
-                        <div className="bg-white/50 p-3 rounded-lg">
-                            <span className="font-bold block text-green-700">추천 코스:</span>
-                            {data.study_guide.next_step}
-                        </div>
+                        <p className="mb-2">완벽하게 이해했습니다. 이제 실전 문장에서 찾아볼까요?</p>
+                        {/* THE BRIDGE: Apply to Syntax Mode */}
+                        <button 
+                           onClick={() => initialTopic && onGoToSyntax(initialTopic)}
+                           className="w-full py-3 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 shadow-md flex items-center justify-center gap-2 mt-2 animate-bounce"
+                        >
+                            <Sparkles size={18} /> 문장 청소기에서 실전 훈련하기 (Apply)
+                        </button>
                     </div>
                 ) : (
                     <div>

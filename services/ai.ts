@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { SentenceData, Difficulty } from "../types";
+import { SentenceData, Difficulty, GrammarData, GrammarLevel } from "../types";
 import { MODIFIER_TYPES } from "../constants";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -40,6 +40,46 @@ const SENTENCE_SCHEMA = {
       }
     }
   }
+};
+
+const GRAMMAR_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    concept: {
+      type: Type.OBJECT,
+      properties: {
+        title: { type: Type.STRING },
+        summary: { type: Type.ARRAY, items: { type: Type.STRING } },
+        example: { type: Type.STRING },
+      },
+      required: ["title", "summary", "example"]
+    },
+    quizzes: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          question: { type: Type.STRING },
+          options: { type: Type.ARRAY, items: { type: Type.STRING } },
+          answer: { type: Type.STRING },
+          explanation: { type: Type.STRING },
+        },
+        required: ["question", "options", "answer", "explanation"]
+      }
+    },
+    puzzle: {
+      type: Type.OBJECT,
+      properties: {
+        id: { type: Type.STRING },
+        sentence_translation: { type: Type.STRING },
+        chunks: { type: Type.ARRAY, items: { type: Type.STRING } },
+        correct_order: { type: Type.ARRAY, items: { type: Type.STRING } },
+        distractor: { type: Type.STRING, nullable: true },
+      },
+      required: ["sentence_translation", "chunks", "correct_order"]
+    }
+  },
+  required: ["concept", "quizzes", "puzzle"]
 };
 
 export const parseTextToGameData = async (text: string): Promise<SentenceData[]> => {
@@ -240,5 +280,51 @@ export const generateSocraticHint = async (
     return response.text || "다시 한번 의미를 생각해보세요.";
   } catch (e) {
     return "이 문맥에서 어떤 의미가 더 자연스러운지 생각해보세요.";
+  }
+};
+
+export const generateGrammarData = async (topic: string, level: GrammarLevel): Promise<GrammarData | null> => {
+  // Enhanced prompt for friendly Korean explanation with English terms
+  const prompt = `
+    You are a friendly, expert Korean English Grammar Teacher for middle school students.
+    Topic: '${topic}'
+    Level: '${level}'
+    
+    Task:
+    1. **concept**: Explain the grammar point in easy KOREAN. 
+       - Title must be in Korean (with English term). e.g., "To부정사 (To-Infinitive)".
+       - Summary should be 3 short, punchy bullet points in Korean.
+       - Example sentence should be simple and clear.
+    2. **quizzes**: Create 3 binary choice questions (e.g., [is/are]).
+       - Explanation must be in KOREAN, explaining WHY the answer is correct.
+    3. **puzzle**: A sentence reordering task.
+       - If level == 'beginner': Split sentence into meaningful phrases (chunks). NO distractor.
+       - If level == 'advanced': Split sentence into individual words. MUST include 1 'distractor' word that looks grammatically plausible but is wrong (e.g., 'who' vs 'which').
+
+    Output JSON schema:
+    {
+      "concept": { "title": string, "summary": string[], "example": string },
+      "quizzes": [{ "question": string, "options": string[], "answer": string, "explanation": string }],
+      "puzzle": { "id": string, "sentence_translation": string, "chunks": string[], "correct_order": string[], "distractor": string | null }
+    }
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview',
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: GRAMMAR_SCHEMA
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text) as GrammarData;
+    }
+    return null;
+  } catch (e) {
+    console.error("Grammar Gen Failed", e);
+    return null;
   }
 };

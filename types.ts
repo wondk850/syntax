@@ -89,3 +89,29 @@ export interface DiagnosisStats {
   codeErrorRate: number;
   feedback: string;
 }
+
+// --- GRAMMAR MODE TYPES ---
+export type GrammarLevel = 'beginner' | 'advanced';
+
+export interface GrammarPuzzle {
+  id: string;
+  sentence_translation: string;
+  chunks: string[];       // Scrambled blocks
+  correct_order: string[]; // Correct order of blocks
+  distractor: string | null; // Trap block (Advanced only)
+}
+
+export interface GrammarData {
+  concept: {
+    title: string;
+    summary: string[]; // 3-line summary
+    example: string;
+  };
+  quizzes: {
+    question: string;
+    options: string[];
+    answer: string;
+    explanation: string;
+  }[];
+  puzzle: GrammarPuzzle;
+}
